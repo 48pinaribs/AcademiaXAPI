@@ -11,4 +11,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AcademiaX_Data_Access\AcademiaX_Data_Access.csproj" />
+  </ItemGroup>
+
 </Project>
