@@ -13,7 +13,6 @@ namespace AcademiaX_Data_Access.Domain
 		public string Title { get; set; }
 		public string Content { get; set; }
 		public DateTime DatePosted { get; set; }
-		public int CreatedBy { get; set; }  // Hangi kullanıcı tarafından oluşturuldu
-		public string CreatedByUser { get; set; }  // Kullanıcıyı referans alır
+		public string UserId { get; set; }  // Hangi kullanıcı tarafından oluşturuldu
 	}
 }
