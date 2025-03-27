@@ -82,7 +82,7 @@ namespace AcademiaX_Data_Access.Migrations
                         column: x => x.CourseId,
                         principalTable: "Course",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -112,7 +112,7 @@ namespace AcademiaX_Data_Access.Migrations
                         column: x => x.CourseId,
                         principalTable: "Course",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(
