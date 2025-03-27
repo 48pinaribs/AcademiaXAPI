@@ -17,7 +17,7 @@ namespace AcademiaX_Data_Access.Domain
 		public int Id { get; set; }
 
 		[Required]
-		public int StudentId { get; set; } // Yoklaması alınan öğrenci
+		public string StudentId { get; set; } // Yoklaması alınan öğrenci
 
 		[Required]
 		public int CourseId { get; set; } // Yoklamanın ait olduğu ders
@@ -37,5 +37,4 @@ namespace AcademiaX_Data_Access.Domain
 	}
 
 
-}
 }

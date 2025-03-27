@@ -15,7 +15,7 @@ namespace AcademiaX_Data_Access.Domain
 		public int Id { get; set; }
 
 		[Required]
-		public int StudentId { get; set; } // Notu alan öğrenci
+		public string StudentId { get; set; } // Notu alan öğrenci
 
 		[Required]
 		public int CourseId { get; set; } // Notun verildiği ders
