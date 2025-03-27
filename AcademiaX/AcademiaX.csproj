@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AcademiaX_Business\AcademiaX_Business.csproj" />
     <ProjectReference Include="..\AcademiaX_Data_Access\AcademiaX_Data_Access.csproj" />
   </ItemGroup>
 
