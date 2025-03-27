@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,6 +21,8 @@ namespace AcademiaX_Data_Access.Models
 		public ICollection<Attendance> Attendances { get; set; }
 		public ICollection<Course> Courses { get; set; }
 		public ICollection<Grade> Grades { get; set; }
+
+		[NotMapped]
 		public ICollection<Message> Messages { get; set; }
 
 	}
