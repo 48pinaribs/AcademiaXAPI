@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AcademiaX_Data_Access\AcademiaX_Data_Access.csproj" />
+  </ItemGroup>
+
 </Project>
