@@ -7,9 +7,12 @@ using AcademiaX_Data_Access.Models;
 using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -34,9 +37,67 @@ namespace AcademiaX_Business.Concrete
 			secretKey = configuration.GetValue<string>("SecretKey:jwtKey");
 		}
 
-		public Task<ApiResponse> Login(LoginRequestDTO model)
+		/*
+		   Genel Yapı:
+              Kullanıcı adı veritabanında var mı diye bakılıyor
+
+              Şifre doğru mu kontrol ediliyor
+
+              Rol bilgisi alınıyor
+
+              JWT token oluşturuluyor(Claimlerle)
+  
+              Sonuç (LoginResponseModel) geri döndürülüyor
+		 */
+
+		public async Task<ApiResponse> Login(LoginRequestDTO model)
 		{
-			throw new NotImplementedException();
+			ApplicationUser userFromDb = _context.ApplicationUsers.FirstOrDefault(u => u.UserName.ToLower() == model.Identifier.ToLower());
+			if (userFromDb != null)
+			{
+				bool isValid = await _userManager.CheckPasswordAsync(userFromDb, model.Password);
+				if (!isValid)
+				{
+					_response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+					_response.ErrorMessages.Add("Your entry information is not correct");
+					_response.IsSuccess = false;
+					return _response;
+				}
+				var role = await _userManager.GetRolesAsync(userFromDb);
+				JwtSecurityTokenHandler tokenHandler = new();
+				byte[] key = Encoding.ASCII.GetBytes(secretKey);
+
+				SecurityTokenDescriptor tokenDescriptor = new()
+				{
+					Subject = new System.Security.Claims.ClaimsIdentity(new Claim[]
+					{
+						new Claim(ClaimTypes.NameIdentifier, userFromDb.Id),
+						new Claim(ClaimTypes.Email, userFromDb.Email),
+						new Claim(ClaimTypes.Role, role.FirstOrDefault() == null ? "Student" : role.FirstOrDefault())
+					}),
+					Expires = DateTime.UtcNow.AddDays(1),
+					SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+
+				};
+
+				SecurityToken token = tokenHandler.CreateToken(tokenDescriptor);
+
+				LoginResponseModel _model = new()
+				{
+					Email = userFromDb.Email,
+					Token = tokenHandler.WriteToken(token),
+				};
+				_response.Result = _model;
+				_response.IsSuccess = true;
+				_response.StatusCode = System.Net.HttpStatusCode.OK;
+				return _response;
+
+			}
+			_response.IsSuccess = false;
+			_response.ErrorMessages.Add("Ooops! something went wrong");
+			return _response;
+
+
 		}
 
 		public  async Task<ApiResponse> Register(RegisterRequestDTO model)
