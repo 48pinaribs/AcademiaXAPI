@@ -15,10 +15,10 @@ public class Message
 		public int Id { get; set; }
 
 		[Required]
-		public int SenderId { get; set; }
+		public string SenderId { get; set; }
 
 		[Required]
-		public int ReceiverId { get; set; }
+		public string ReceiverId { get; set; }
 
 		[Required]
 		[MaxLength(1000)]  // Maksimum mesaj uzunluğu belirleyelim
