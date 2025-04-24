@@ -6,6 +6,7 @@ using AcademiaX_Data_Access.Enums;
 using AcademiaX_Data_Access.Models;
 using AutoMapper;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
@@ -37,18 +38,12 @@ namespace AcademiaX_Business.Concrete
 			secretKey = configuration.GetValue<string>("SecretKey:jwtKey");
 		}
 
-		/*
-		   Genel Yapı:
+		/* Genel Yapı:
               Kullanıcı adı veritabanında var mı diye bakılıyor
-
               Şifre doğru mu kontrol ediliyor
-
               Rol bilgisi alınıyor
-
               JWT token oluşturuluyor(Claimlerle)
-  
-              Sonuç (LoginResponseModel) geri döndürülüyor
-		 */
+              Sonuç (LoginResponseModel) geri döndürülüyor */
 
 		public async Task<ApiResponse> Login(LoginRequestDTO model)
 		{
@@ -100,6 +95,9 @@ namespace AcademiaX_Business.Concrete
 
 		}
 
+
+
+		
 		public  async Task<ApiResponse> Register(RegisterRequestDTO model)
 		{
 			var userFromDb = _context.ApplicationUsers.FirstOrDefault(x=>x.UserName.ToLower() == model.UserName.ToLower());
@@ -110,11 +108,20 @@ namespace AcademiaX_Business.Concrete
 				_response.ErrorMessages.Add("UserName already exist");
 				return _response;
 			}
-			 
-			var newUser = _mapper.Map<ApplicationUser>(model);
+
+			//var newUser = _mapper.Map<ApplicationUser>(model);
+
+			ApplicationUser newUser = new()
+			{
+				UserName = model.UserName,
+				Email = model.Email
+			};
+
+			var result = await _userManager.CreateAsync(newUser, model.Password); //ASP.NET Core Identity sisteminde yeni bir kullanıcıyı veritabanına eklemek için kullanılır.
 
 
-			var result = await _userManager.CreateAsync(newUser, model.Password);
+
+			//ASP.NET Core Identity sisteminde kayıt olan kullanıcıya uygun rol atamak için kullanılıyor.
 			if (result.Succeeded)
 			{
 				var isTrue = _roleManager.RoleExistsAsync(UserType.Administrator.ToString()).GetAwaiter().GetResult();
