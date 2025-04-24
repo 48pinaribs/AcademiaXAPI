@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AcademiaX_Data_Access.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250327140348_CreateTables")]
-    partial class CreateTables
+    [Migration("20250424123029_NullableObjects")]
+    partial class NullableObjects
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -48,14 +48,13 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("UserId1")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId1");
 
-                    b.ToTable("Announcement");
+                    b.ToTable("Announcements");
                 });
 
             modelBuilder.Entity("AcademiaX_Data_Access.Domain.Attendance", b =>
@@ -85,7 +84,7 @@ namespace AcademiaX_Data_Access.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("Attendance");
+                    b.ToTable("Attendances");
                 });
 
             modelBuilder.Entity("AcademiaX_Data_Access.Domain.Course", b =>
@@ -118,7 +117,7 @@ namespace AcademiaX_Data_Access.Migrations
 
                     b.HasIndex("TeacherId1");
 
-                    b.ToTable("Course");
+                    b.ToTable("Courses");
                 });
 
             modelBuilder.Entity("AcademiaX_Data_Access.Domain.Grade", b =>
@@ -154,7 +153,43 @@ namespace AcademiaX_Data_Access.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("Grade");
+                    b.ToTable("Grades");
+                });
+
+            modelBuilder.Entity("AcademiaX_Data_Access.Domain.Message", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ReceiverId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SenderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceiverId");
+
+                    b.HasIndex("SenderId");
+
+                    b.ToTable("Messages");
                 });
 
             modelBuilder.Entity("AcademiaX_Data_Access.Models.ApplicationUser", b =>
@@ -166,14 +201,13 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Address")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("DateOfBirth")
+                    b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
@@ -184,11 +218,9 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("FirstName")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LastName")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("LockoutEnabled")
@@ -217,7 +249,7 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<string>("ProfilePicture")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("RegistrationDate")
+                    b.Property<DateTime?>("RegistrationDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("SecurityStamp")
@@ -380,9 +412,7 @@ namespace AcademiaX_Data_Access.Migrations
                 {
                     b.HasOne("AcademiaX_Data_Access.Models.ApplicationUser", "User")
                         .WithMany("Announcements")
-                        .HasForeignKey("UserId1")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("UserId1");
 
                     b.Navigation("User");
                 });
@@ -434,6 +464,25 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("AcademiaX_Data_Access.Domain.Message", b =>
+                {
+                    b.HasOne("AcademiaX_Data_Access.Models.ApplicationUser", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AcademiaX_Data_Access.Models.ApplicationUser", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
