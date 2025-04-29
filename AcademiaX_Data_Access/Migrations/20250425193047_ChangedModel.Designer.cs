@@ -4,6 +4,7 @@ using AcademiaX_Data_Access.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AcademiaX_Data_Access.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250425193047_ChangedModel")]
+    partial class ChangedModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -96,10 +99,7 @@ namespace AcademiaX_Data_Access.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Credits")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DepartmentId")
+                    b.Property<int>("Credit")
                         .HasColumnType("int");
 
                     b.Property<string>("Description")
@@ -110,15 +110,9 @@ namespace AcademiaX_Data_Access.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("SemesterId")
-                        .HasColumnType("int");
-
                     b.Property<string>("TeacherId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Title")
-                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -202,6 +196,7 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("AcademicLevel")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("AccessFailedCount")
@@ -227,6 +222,7 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Department")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
@@ -237,6 +233,7 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("Faculty")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FirstName")

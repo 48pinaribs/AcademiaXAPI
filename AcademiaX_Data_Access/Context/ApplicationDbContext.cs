@@ -24,6 +24,30 @@ namespace AcademiaX_Data_Access.Context
 		public DbSet<Attendance> Attendances { get; set; }
 		public DbSet<Announcement> Announcements { get; set; }
 
-	
+
+		//Ders-Öğrenci ilişkisi: Çoktan çoğa → StudentCourses tablosu oluşturulur.
+		//Ders-Öğretmen ilişkisi: Bire çok, ama silme işleminde öğretmen silinemez(Restrict).
+		//c → Course nesnesi (bir ders)
+		//u → ApplicationUser nesnesi(bir öğrenci)
+		//OnModelCreating metodu içinde yaptığın şey, Entity Framework Core'da ilişkileri manuel olarak konfigüre etmek.
+		protected override void OnModelCreating(ModelBuilder modelBuilder)
+		{
+			base.OnModelCreating(modelBuilder);
+
+			modelBuilder.Entity<Course>()
+				.HasMany(c => c.Students)
+				.WithMany(u => u.Courses)
+				.UsingEntity(j => j.ToTable("StudentCourses"));
+
+			modelBuilder.Entity<Course>()
+	       .HasOne(c => c.Teacher)
+	       .WithMany() // eğer ApplicationUser tarafında karşılık tanımlamadıysan boş bırak
+	       .HasForeignKey(c => c.TeacherId)
+	       .OnDelete(DeleteBehavior.Restrict);
+
+
+		}
+
+
 	}
 }

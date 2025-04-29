@@ -23,7 +23,7 @@ namespace AcademiaX_Data_Access.Domain
 		public int CourseId { get; set; } // Yoklamanın ait olduğu ders
 
 		[Required]
-		public DateTime AttendanceDate { get; set; } = DateTime.UtcNow; // Yoklamanın tarihi
+		public DateTime Date { get; set; } = DateTime.UtcNow; // Yoklamanın tarihi
 
 		[Required]
 		public AttendanceStatus Status { get; set; } = AttendanceStatus.Present; // Katılım durumu

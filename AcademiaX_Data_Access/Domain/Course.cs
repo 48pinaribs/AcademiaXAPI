@@ -8,15 +8,28 @@ using System.Threading.Tasks;
 
 namespace AcademiaX_Data_Access.Domain
 {
-		public class Course
-		{
-		    [Key]
-			public int Id { get; set; }
-			public string Name { get; set; }  // Dersin adı  
-			public string Description { get; set; }  // Dersin açıklaması	
-		    public int Credit { get; set; } // Dersin kredisi
-		    public int TeacherId { get; set; }  // Öğretmen bilgisi  
-			public ApplicationUser Teacher { get; set; }
-		}
+	public class Course
+	{
+		[Key]
+		public int Id { get; set; }
+
+		public string? Title { get; set; }
+		public string Code { get; set; }
+		public string Name { get; set; }  // Dersin adı					
+		public int SemesterId { get; set; } // Yarıyıl ID
+		public int DepartmentId { get; set; } // Bölüm ID
+		public string Description { get; set; }  // Dersin açıklaması	
+		public int Credits { get; set; } // Dersin kredisi
+
+
+		// ✅ Öğrenci ilişkisi (Many-to-Many)
+		public ICollection<ApplicationUser> Students { get; set; } 
+
+
+
+		// ✅ Öğretmen ilişkisi (One-to-Many)
+		public string TeacherId { get; set; }
+		public ApplicationUser Teacher { get; set; }
+	}
 
 }

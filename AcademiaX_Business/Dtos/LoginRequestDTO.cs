@@ -6,7 +6,7 @@ namespace AcademiaX_Business.Dtos
 	{
 	
 			[Required(ErrorMessage = "User ID is required.")]
-			public string Identifier { get; set; }
+			public string UserName { get; set; }
 			// Öğrenci numarası, öğretmen ID'si ya da admin ID'si
 
 			[Required(ErrorMessage = "Password is required.")]

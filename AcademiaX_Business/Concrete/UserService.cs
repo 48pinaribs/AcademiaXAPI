@@ -47,7 +47,7 @@ namespace AcademiaX_Business.Concrete
 
 		public async Task<ApiResponse> Login(LoginRequestDTO model)
 		{
-			ApplicationUser userFromDb = _context.ApplicationUsers.FirstOrDefault(u => u.UserName.ToLower() == model.Identifier.ToLower());
+			ApplicationUser userFromDb = _context.ApplicationUsers.FirstOrDefault(u => u.UserName.ToLower() == model.UserName.ToLower());
 			if (userFromDb != null)
 			{
 				bool isValid = await _userManager.CheckPasswordAsync(userFromDb, model.Password);
@@ -114,7 +114,12 @@ namespace AcademiaX_Business.Concrete
 			ApplicationUser newUser = new()
 			{
 				UserName = model.UserName,
-				Email = model.Email
+				Email = model.Email,
+				PhoneNumber = model.PhoneNumber,
+				FirstName = model.FirstName,
+				LastName = model.LastName,
+				Image = model.Image,
+
 			};
 
 			var result = await _userManager.CreateAsync(newUser, model.Password); //ASP.NET Core Identity sisteminde yeni bir kullanıcıyı veritabanına eklemek için kullanılır.

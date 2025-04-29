@@ -15,12 +15,6 @@ public class Message
 		public int Id { get; set; }
 
 		[Required]
-		public string SenderId { get; set; }
-
-		[Required]
-		public string ReceiverId { get; set; }
-
-		[Required]
 		[MaxLength(1000)]  // Maksimum mesaj uzunluğu belirleyelim
 		public string Content { get; set; } = string.Empty;
 
@@ -29,9 +23,15 @@ public class Message
 
 		public bool IsRead { get; set; } = false;  // Varsayılan olarak okunmamış
 
+		[Required]
+		public string SenderId { get; set; }
+
 		// Foreign Keys
 		[ForeignKey("SenderId")]
 		public ApplicationUser Sender { get; set; } = null!;  // Nullable olmasın
+
+		[Required]
+		public string ReceiverId { get; set; }
 
 		[ForeignKey("ReceiverId")]
 		public ApplicationUser Receiver { get; set; } = null!;  // Nullable olmasın

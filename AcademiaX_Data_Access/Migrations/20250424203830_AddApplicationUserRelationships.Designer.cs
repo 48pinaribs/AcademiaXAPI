@@ -4,6 +4,7 @@ using AcademiaX_Data_Access.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AcademiaX_Data_Access.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250424203830_AddApplicationUserRelationships")]
+    partial class AddApplicationUserRelationships
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,11 +65,11 @@ namespace AcademiaX_Data_Access.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("AttendanceDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("CourseId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -92,14 +95,7 @@ namespace AcademiaX_Data_Access.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Credits")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DepartmentId")
+                    b.Property<int>("Credit")
                         .HasColumnType("int");
 
                     b.Property<string>("Description")
@@ -110,19 +106,16 @@ namespace AcademiaX_Data_Access.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("SemesterId")
+                    b.Property<int>("TeacherId")
                         .HasColumnType("int");
 
-                    b.Property<string>("TeacherId")
+                    b.Property<string>("TeacherId1")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Title")
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("TeacherId");
+                    b.HasIndex("TeacherId1");
 
                     b.ToTable("Courses");
                 });
@@ -138,17 +131,20 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<int>("CourseId")
                         .HasColumnType("int");
 
-                    b.Property<int>("ExamType")
-                        .HasColumnType("int");
+                    b.Property<double>("FinalGrade")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("MakeupGrade")
+                        .HasColumnType("float");
+
+                    b.Property<double>("MidtermGrade")
+                        .HasColumnType("float");
 
                     b.Property<string>("StudentId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<double>("TotalGrade")
-                        .HasColumnType("float");
-
-                    b.Property<double>("Value")
                         .HasColumnType("float");
 
                     b.HasKey("Id");
@@ -201,9 +197,6 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("AcademicLevel")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
@@ -213,21 +206,12 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<string>("AdvisorId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Biography")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Branch")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Department")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -236,16 +220,7 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Faculty")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("FirstName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<double?>("GPA")
-                        .HasColumnType("float");
-
-                    b.Property<string>("Image")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LastName")
@@ -265,9 +240,6 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.Property<string>("Office")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
 
@@ -277,13 +249,13 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ProfilePicture")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("RegistrationDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Title")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("TwoFactorEnabled")
@@ -309,21 +281,6 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
-                });
-
-            modelBuilder.Entity("ApplicationUserCourse", b =>
-                {
-                    b.Property<int>("CoursesId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("StudentsId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("CoursesId", "StudentsId");
-
-                    b.HasIndex("StudentsId");
-
-                    b.ToTable("StudentCourses", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -490,9 +447,9 @@ namespace AcademiaX_Data_Access.Migrations
             modelBuilder.Entity("AcademiaX_Data_Access.Domain.Course", b =>
                 {
                     b.HasOne("AcademiaX_Data_Access.Models.ApplicationUser", "Teacher")
-                        .WithMany()
-                        .HasForeignKey("TeacherId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .WithMany("Courses")
+                        .HasForeignKey("TeacherId1")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Teacher");
@@ -543,21 +500,6 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasForeignKey("AdvisorId");
 
                     b.Navigation("Advisor");
-                });
-
-            modelBuilder.Entity("ApplicationUserCourse", b =>
-                {
-                    b.HasOne("AcademiaX_Data_Access.Domain.Course", null)
-                        .WithMany()
-                        .HasForeignKey("CoursesId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("AcademiaX_Data_Access.Models.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("StudentsId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -616,6 +558,8 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Navigation("Announcements");
 
                     b.Navigation("Attendances");
+
+                    b.Navigation("Courses");
 
                     b.Navigation("Grades");
                 });
