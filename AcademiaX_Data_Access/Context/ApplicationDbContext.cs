@@ -45,6 +45,10 @@ namespace AcademiaX_Data_Access.Context
 	       .HasForeignKey(c => c.TeacherId)
 	       .OnDelete(DeleteBehavior.Restrict);
 
+			modelBuilder.Entity<ApplicationUser>()
+	       .Property(e => e.UserType)
+	       .HasConversion<string>();
+
 
 		}
 
