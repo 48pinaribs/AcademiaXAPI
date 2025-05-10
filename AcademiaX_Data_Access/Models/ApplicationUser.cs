@@ -21,7 +21,7 @@ namespace AcademiaX_Data_Access.Models
 		public string? Image { get; set; } // Profil fotoğrafı dosya adı ya da URL
 
 		// ✅ Kullanıcı tipi: Öğrenci, Öğretmen, Admin (Enum)
-		public UserType UserType { get; set; } = UserType.Student;
+		public UserType UserType { get; set; }
 		public string? Branch { get; set; }
 		public string? Title { get; set; }
 		public string? Office { get; set; }
