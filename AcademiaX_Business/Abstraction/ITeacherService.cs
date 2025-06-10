@@ -11,6 +11,10 @@ namespace AcademiaX_Business.Abstraction
 {
 	public interface ITeacherService
 	{
+
+		Task<ApiResponse> GetAllTeachers();
+		Task<ApiResponse> GetTeacherById(string teacherId);
+
 		/// Öğretmenin verdiği dersleri getirir
 		Task<ApiResponse> GetCoursesByTeacher(TeacherCoursesDTO model);
 

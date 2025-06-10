@@ -26,7 +26,6 @@ namespace AcademiaX_Data_Access.Domain
 		public ICollection<ApplicationUser> Students { get; set; } 
 
 
-
 		// ✅ Öğretmen ilişkisi (One-to-Many)
 		public string TeacherId { get; set; }
 		public ApplicationUser Teacher { get; set; }

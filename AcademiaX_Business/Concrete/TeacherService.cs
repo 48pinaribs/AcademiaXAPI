@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Net;
 using AcademiaX_Business.Dtos;
 using AcademiaX_Business.Dtos.Courses;
+using AcademiaX_Data_Access.Enums;
 
 namespace AcademiaX_Business.Concrete;
 
@@ -17,6 +18,55 @@ public class TeacherService : ITeacherService
 	{
 		_context = context;
 	}
+
+	public async Task<ApiResponse> GetAllTeachers()
+	{
+		var response = new ApiResponse();
+		var teachers = await _context.ApplicationUsers
+	  .Where(u => u.UserType == UserType.Teacher)
+	.Select(u => new PersonDTO
+	{
+		Id = u.Id,
+		FullName = u.FirstName + " " + u.LastName,
+		Email = u.Email,
+		PhoneNumber = u.PhoneNumber,
+		Image = u.Image
+	})
+   .ToListAsync();
+
+		response.StatusCode = HttpStatusCode.OK;
+		response.IsSuccess = true;
+		response.Result = teachers;
+		return response;
+	}
+
+	public async Task<ApiResponse> GetTeacherById(string teacherId)
+	{
+		var response = new ApiResponse();
+		var teacher = await _context.ApplicationUsers
+			.Where(u => u.UserType == UserType.Teacher && u.Id == teacherId)
+			.Select(u => new PersonDTO
+			{
+				Id = u.Id,
+				FullName = u.FirstName + " " + u.LastName,
+				Email = u.Email,
+				PhoneNumber = u.PhoneNumber,
+				Image = u.Image
+			})
+			.FirstOrDefaultAsync();
+		if (teacher == null)
+		{
+			response.StatusCode = HttpStatusCode.NotFound;
+			response.IsSuccess = false;
+			response.ErrorMessages.Add("Student not found.");
+			return response;
+		}
+		response.StatusCode = HttpStatusCode.OK;
+		response.IsSuccess = true;
+		response.Result = teacher;
+		return response;
+	}
+
 
 	public Task<ApiResponse> GetCoursesByTeacher(TeacherCoursesDTO model)
 	{
@@ -33,33 +83,41 @@ public class TeacherService : ITeacherService
 		return Task.FromResult(response);
 	}
 
-	public Task<ApiResponse> GetTeacherProfile(TeacherProfileDTO model)
+	public async Task<ApiResponse> GetTeacherProfile(TeacherProfileDTO model)
 	{
 		var response = new ApiResponse();
 
-		var teacher = _context.ApplicationUsers.FirstOrDefault(u => u.Id == model.Id);
+		var teacher = await _context.ApplicationUsers
+			.Where(u => u.UserType == UserType.Teacher && u.Id == model.Id)
+			.Select(u => new TeacherProfileDTO
+			{
+				Id = u.Id,
+				FullName = u.FirstName + " " + u.LastName,
+				Email = u.Email,
+				PhoneNumber = u.PhoneNumber,
+				Image = u.Image,
+				Branch = u.Branch,
+				Title = u.Title,
+				Office = u.Office,
+				Biography = u.Biography
+			})
+			.FirstOrDefaultAsync();
+
+		//var teacher = _context.ApplicationUsers.FirstOrDefault(u => u.Id == model.Id);
 
 		if (teacher == null)
 		{
 			response.IsSuccess = false;
 			response.StatusCode = HttpStatusCode.NotFound;
 			response.ErrorMessages.Add("Öğretmen bulunamadı.");
-			return Task.FromResult(response);
+			return response;
 		}
-
-		var profile = new
-		{
-			teacher.Id,
-			FullName = teacher.FirstName + " " +teacher.LastName,
-			teacher.Email,
-			teacher.PhoneNumber,
-		};
 
 		response.StatusCode = HttpStatusCode.OK;
 		response.IsSuccess = true;
-		response.Result = profile;
+		response.Result = teacher;
 
-		return Task.FromResult(response);
+		return response;
 	}
 
 	public Task<ApiResponse> UpdateTeacherProfile(UpdateProfileRequestDTO model)

@@ -98,5 +98,12 @@ namespace AcademiaX_API.Controllers
 			var response = await _courseService.GetAvailableCourses(userId);
 			return StatusCode((int)response.StatusCode, response);
 		}
+
+		[HttpGet("{courseId}/students")]
+		public async Task<IActionResult> GetStudentsByCourse(int courseId)
+		{
+			var response = await _courseService.GetStudentsInCourse(courseId);
+			return StatusCode((int)response.StatusCode, response);
+		}
 	}
 }

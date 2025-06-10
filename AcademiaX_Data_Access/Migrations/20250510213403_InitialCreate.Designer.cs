@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AcademiaX_Data_Access.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250429082922_NullableAcademicLevel")]
-    partial class NullableAcademicLevel
+    [Migration("20250510213403_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -121,7 +121,6 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Title")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -231,7 +230,6 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Department")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
@@ -242,7 +240,6 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("Faculty")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FirstName")
@@ -299,8 +296,9 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.Property<int>("UserType")
-                        .HasColumnType("int");
+                    b.Property<string>("UserType")
+                        .IsRequired()
+                        .HasColumnType("varchar(20)");
 
                     b.HasKey("Id");
 

@@ -1,5 +1,6 @@
 using AcademiaX_Business.Abstraction;
 using AcademiaX_Business.Concrete;
+using AcademiaX_Core.Configuration;
 using AcademiaX_Core.Models;
 using AcademiaX_Data_Access.Context;
 using AcademiaX_Data_Access.Models;
@@ -20,9 +21,26 @@ builder.Services.AddScoped<IUserService, UserService>();//DI
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<ITeacherService, TeacherService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IGtfsService, GtfsService>();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly());
 builder.Services.AddScoped(typeof(ApiResponse));
+
+builder.Services.Configure<GtfsSettings>(
+	builder.Configuration.GetSection("GtfsSettings"));
+
+
+// CORS'u tanýmla
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("AllowReact",
+		builder =>
+		{
+			builder.WithOrigins("http://localhost:3000")
+				   .AllowAnyHeader()
+				   .AllowAnyMethod();
+		});
+});
 
 
 var app = builder.Build();
@@ -39,5 +57,7 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.UseCors("AllowReact");
 
 app.Run();

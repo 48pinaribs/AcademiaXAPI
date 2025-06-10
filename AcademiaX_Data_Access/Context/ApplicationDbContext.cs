@@ -18,6 +18,9 @@ namespace AcademiaX_Data_Access.Context
 		}
 
 		public DbSet<ApplicationUser> ApplicationUsers { get; set; }
+		public DbSet<Stop> Stops { get; set; }
+		public DbSet<Trip> Trips { get; set; }
+		public DbSet<StopTime> StopTimes { get; set; }
 		public DbSet<Course> Courses { get; set; }
 		public DbSet<Grade> Grades { get; set; }
 		public DbSet<Message> Messages { get; set; }
@@ -45,9 +48,12 @@ namespace AcademiaX_Data_Access.Context
 	       .HasForeignKey(c => c.TeacherId)
 	       .OnDelete(DeleteBehavior.Restrict);
 
+			modelBuilder.Entity<StopTime>().HasNoKey();
+
 			modelBuilder.Entity<ApplicationUser>()
-	       .Property(e => e.UserType)
+	       .Property(u => u.UserType)
 	       .HasConversion<string>();
+
 
 
 		}

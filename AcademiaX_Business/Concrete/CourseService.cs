@@ -3,7 +3,9 @@ using AcademiaX_Business.Dtos.Courses;
 using AcademiaX_Core.Models;
 using AcademiaX_Data_Access.Context;
 using AcademiaX_Data_Access.Domain;
+using AcademiaX_Data_Access.Enums;
 using AcademiaX_Data_Access.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,7 +47,7 @@ namespace AcademiaX_Business.Concrete
 			};
 		}
 
-		public async Task<ApiResponse> UpdateCourse(UpdateCourseRequestDTO model)
+		public async Task<ApiResponse> UpdateCourse([FromBody] UpdateCourseRequestDTO model)
 		{
 			var course = await _context.Courses.FirstOrDefaultAsync(c => c.Id == model.CourseId);
 
@@ -61,6 +63,7 @@ namespace AcademiaX_Business.Concrete
 
 			course.Name = model.Name;
 			course.Description = model.Description;
+			course.Code = model.Code;
 			course.Credits = model.Credits;
 			course.DepartmentId = model.DepartmentId;
 			course.SemesterId = model.SemesterId;
@@ -126,10 +129,14 @@ namespace AcademiaX_Business.Concrete
 				.Select(c => new CourseDTO
 				{
 					CourseId = c.Id,
+					TeacherId = c.TeacherId,
+					Credits = c.Credits,
+					DepartmentId = c.DepartmentId,
+					SemesterId = c.SemesterId,
 					Name = c.Name,
 					Code = c.Code,
 					Description = c.Description,
-					TotalStudents = c.Students.Count()
+				//	TotalStudents = c.Students.Count()
 				})
 				.FirstOrDefaultAsync();
 
@@ -305,6 +312,49 @@ namespace AcademiaX_Business.Concrete
 				IsSuccess = true,
 				Result = availableCourses
 			};
+		}
+
+		public async Task<ApiResponse> GetStudentsInCourse(int courseId)
+		{
+			var response = new ApiResponse();
+
+			try
+			{
+				var course = await _context.Courses
+					.Include(c => c.Students)
+					.FirstOrDefaultAsync(c => c.Id == courseId);
+
+				if (course == null)
+				{
+					response.StatusCode = HttpStatusCode.NotFound;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Kurs bulunamadı.");
+					return response;
+				}
+
+				var students = course.Students
+					.Where(u => u.UserType == UserType.Student) // Fix: Compare UserType enum directly instead of string  
+					.Select(s => new
+					{
+						s.Id,
+						s.FirstName,
+						s.LastName,
+						s.Email
+					})
+					.ToList();
+
+				response.StatusCode = HttpStatusCode.OK;
+				response.IsSuccess = true;
+				response.Result = students;
+			}
+			catch (Exception ex)
+			{
+				response.StatusCode = HttpStatusCode.InternalServerError;
+				response.IsSuccess = false;
+				response.ErrorMessages.Add(ex.Message);
+			}
+
+			return response;
 		}
 
 	}

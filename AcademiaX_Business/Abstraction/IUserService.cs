@@ -3,6 +3,7 @@ using AcademiaX_Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,5 +13,6 @@ namespace AcademiaX_Business.Abstraction
 	{
 		Task<ApiResponse> Register(RegisterRequestDTO model);
 		Task<ApiResponse> Login(LoginRequestDTO model);
+		Task<ApiResponse> GetUserById(string userId);
 	}
 }

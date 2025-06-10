@@ -1,4 +1,5 @@
 ﻿using AcademiaX_Business.Abstraction;
+using AcademiaX_Business.Dtos;
 using AcademiaX_Core.Models;
 using AcademiaX_Data_Access.Context;
 using AcademiaX_Data_Access.Domain;
@@ -15,6 +16,53 @@ namespace AcademiaX_Business.Concrete
 		public StudentService(ApplicationDbContext context)
 		{
 			_context = context;
+		}
+		public async Task<ApiResponse> GetAllStudents()
+		{
+			var response = new ApiResponse();
+			var students = await _context.ApplicationUsers
+	      .Where(u => u.UserType == UserType.Student)
+	    .Select(u => new PersonDTO
+    	{
+		Id = u.Id,
+		FullName = u.FirstName + " " + u.LastName,
+		Email = u.Email,
+		PhoneNumber = u.PhoneNumber,
+		Image = u.Image
+    	})
+	   .ToListAsync();
+
+			response.StatusCode = HttpStatusCode.OK;
+			response.IsSuccess = true;
+			response.Result = students;
+			return response;
+		}
+
+		public async Task<ApiResponse> GetStudentById(string studentId)
+		{
+			var response = new ApiResponse();
+			var student = await _context.ApplicationUsers
+				.Where(u => u.UserType == UserType.Student && u.Id == studentId)
+				.Select(u => new PersonDTO
+				{
+					Id = u.Id,
+					FullName = u.FirstName + " " + u.LastName,
+					Email = u.Email,
+					PhoneNumber = u.PhoneNumber,
+					Image = u.Image
+				})
+				.FirstOrDefaultAsync();
+			if (student == null)
+			{
+				response.StatusCode = HttpStatusCode.NotFound;
+				response.IsSuccess = false;
+				response.ErrorMessages.Add("Student not found.");
+				return response;
+			}
+			response.StatusCode = HttpStatusCode.OK;
+			response.IsSuccess = true;
+			response.Result = student;
+			return response;
 		}
 
 		public async Task<ApiResponse> GetProfile(string userId)
@@ -67,6 +115,7 @@ namespace AcademiaX_Business.Concrete
 			response.Result = courses;
 			return response;
 		}
+
 
 		public async Task<ApiResponse> GetGrades(string studentId)
 		{

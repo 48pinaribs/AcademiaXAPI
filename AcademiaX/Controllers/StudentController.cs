@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Threading.Tasks;
 using AcademiaX_Business.Dtos.Courses;
+using AcademiaX_Business.Concrete;
+using Microsoft.AspNetCore.Authorization;
 
 namespace AcademiaX.API.Controllers
 {
@@ -17,6 +19,25 @@ namespace AcademiaX.API.Controllers
 		public StudentController(IStudentService studentService)
 		{
 			_studentService = studentService;
+		}
+
+
+		// ✅ 1. Tüm öğrencileri getir
+		[HttpGet("all")]
+		[AllowAnonymous]
+		public async Task<IActionResult> GetAllStudents()
+		{
+			var response = await _studentService.GetAllStudents();
+			return StatusCode((int)response.StatusCode, response);
+		}
+
+		// ✅ 2. ID ile öğrenci getir
+		[HttpGet("{studentId}")]
+		[AllowAnonymous]
+		public async Task<IActionResult> GetStudentById(string studentId)
+		{
+			var response = await _studentService.GetStudentById(studentId);
+			return StatusCode((int)response.StatusCode, response);
 		}
 
 		// GET: api/student/profile/{userId}
@@ -34,6 +55,7 @@ namespace AcademiaX.API.Controllers
 			var response = await _studentService.GetEnrolledCourses(studentId);
 			return StatusCode((int)response.StatusCode, response);
 		}
+
 
 		// GET: api/student/grades/{studentId}
 		[HttpGet("grades/{studentId}")]

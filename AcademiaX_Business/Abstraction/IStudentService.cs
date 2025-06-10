@@ -9,6 +9,9 @@ namespace AcademiaX_Business.Abstraction
 {
 	public  interface IStudentService
 	{
+
+		Task<ApiResponse> GetAllStudents();
+		Task<ApiResponse> GetStudentById(string studentId);
 		Task<ApiResponse> GetProfile(string userId);
 		Task<ApiResponse> GetEnrolledCourses(string studentId);
 		Task<ApiResponse> GetGrades(string studentId);

@@ -115,6 +115,8 @@ namespace AcademiaX_Business.Concrete
 			{
 				UserName = model.UserName,
 				Email = model.Email,
+				UserType = Enum.TryParse<UserType>(model.UserType, true, out var userType) ? userType : null,
+				PasswordHash = model.Password,
 				PhoneNumber = model.PhoneNumber,
 				FirstName = model.FirstName,
 				LastName = model.LastName,
@@ -158,6 +160,36 @@ namespace AcademiaX_Business.Concrete
 			}
 			return _response;
 
+		}
+
+		public async Task<ApiResponse> GetUserById(string userId)
+		{
+			var user = await _userManager.FindByIdAsync(userId);
+			if (user == null)
+			{
+				_response.IsSuccess = false;
+				_response.ErrorMessages.Add("Kullanıcı bulunamadı.");
+				return _response;
+			}
+
+			var roles = await _userManager.GetRolesAsync(user);
+			var role = roles.FirstOrDefault() ?? "Unknown";
+
+			var profile = new
+			{
+				user.FirstName,
+				user.LastName,
+				user.Email,
+				user.PhoneNumber,
+				user.Image,
+				user.UserName,
+				Role = role
+			};
+
+			_response.IsSuccess = true;
+			_response.Result = profile;
+			_response.StatusCode = System.Net.HttpStatusCode.OK;
+			return _response;
 		}
 	}
 }

@@ -1,6 +1,8 @@
 ﻿using AcademiaX_Business.Abstraction;
+using AcademiaX_Business.Concrete;
 using AcademiaX_Business.Dtos;
 using AcademiaX_Business.Dtos.Courses;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AcademiaX_API.Controllers;
@@ -14,6 +16,24 @@ public class TeacherController : ControllerBase
 	public TeacherController(ITeacherService teacherService)
 	{
 		_teacherService = teacherService;
+	}
+
+	// ✅ 1. Tüm öğretmenleri getir
+	[HttpGet("all")]
+	[AllowAnonymous]
+	public async Task<IActionResult> GetAllTeachers()
+	{
+		var response = await _teacherService.GetAllTeachers();
+		return StatusCode((int)response.StatusCode, response);
+	}
+
+	// ✅ 2. ID ile öğretmen getir
+	[HttpGet("{teacherId}")]
+	[AllowAnonymous]
+	public async Task<IActionResult> GetTeacherById(string teacherId)
+	{
+		var response = await _teacherService.GetTeacherById(teacherId);
+		return StatusCode((int)response.StatusCode, response);
 	}
 
 	[HttpGet("profile/{id}")]

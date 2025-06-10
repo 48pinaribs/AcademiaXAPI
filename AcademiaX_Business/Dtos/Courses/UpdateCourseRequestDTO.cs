@@ -16,6 +16,8 @@ namespace AcademiaX_Business.Dtos.Courses
 
 		public string Description { get; set; }  // Kursun yeni açıklaması (opsiyonel olabilir)
 
+	    public string Code { get; set; }
+
 		public int Credits { get; set; }  // Kursun kredi sayısı
 
 		public int DepartmentId { get; set; }  // Hangi bölümde olduğu

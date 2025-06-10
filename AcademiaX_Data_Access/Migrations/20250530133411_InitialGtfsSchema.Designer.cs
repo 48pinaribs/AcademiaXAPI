@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AcademiaX_Data_Access.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250425114707_AddedSomeFieldIntoRegisterRequestDTO")]
-    partial class AddedSomeFieldIntoRegisterRequestDTO
+    [Migration("20250530133411_InitialGtfsSchema")]
+    partial class InitialGtfsSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -99,7 +99,10 @@ namespace AcademiaX_Data_Access.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Credit")
+                    b.Property<int>("Credits")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DepartmentId")
                         .HasColumnType("int");
 
                     b.Property<string>("Description")
@@ -110,9 +113,15 @@ namespace AcademiaX_Data_Access.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("SemesterId")
+                        .HasColumnType("int");
+
                     b.Property<string>("TeacherId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -195,6 +204,9 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("AcademicLevel")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
@@ -204,12 +216,21 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<string>("AdvisorId")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("Biography")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Branch")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Department")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -218,8 +239,14 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Faculty")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FirstName")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<double?>("GPA")
+                        .HasColumnType("float");
 
                     b.Property<string>("Image")
                         .HasColumnType("nvarchar(max)");
@@ -241,6 +268,9 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("Office")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
 
@@ -250,13 +280,13 @@ namespace AcademiaX_Data_Access.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ProfilePicture")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime?>("RegistrationDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("SecurityStamp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("TwoFactorEnabled")
@@ -266,8 +296,8 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.Property<int>("UserType")
-                        .HasColumnType("int");
+                    b.Property<string>("UserType")
+                        .HasColumnType("varchar(20)");
 
                     b.HasKey("Id");
 
@@ -282,6 +312,69 @@ namespace AcademiaX_Data_Access.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("AcademiaX_Data_Access.Models.Stop", b =>
+                {
+                    b.Property<string>("StopId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<double>("StopLat")
+                        .HasColumnType("float");
+
+                    b.Property<double>("StopLon")
+                        .HasColumnType("float");
+
+                    b.Property<string>("StopName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("StopId");
+
+                    b.ToTable("Stops");
+                });
+
+            modelBuilder.Entity("AcademiaX_Data_Access.Models.StopTime", b =>
+                {
+                    b.Property<TimeSpan>("ArrivalTime")
+                        .HasColumnType("time");
+
+                    b.Property<TimeSpan>("DepartureTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("StopId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StopSequence")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TripId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ToTable("StopTimes");
+                });
+
+            modelBuilder.Entity("AcademiaX_Data_Access.Models.Trip", b =>
+                {
+                    b.Property<string>("TripId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("DirectionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RouteId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ServiceId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("TripId");
+
+                    b.ToTable("Trips");
                 });
 
             modelBuilder.Entity("ApplicationUserCourse", b =>

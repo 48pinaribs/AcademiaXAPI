@@ -19,6 +19,7 @@ namespace AcademiaX_Business.Abstraction
 		Task<ApiResponse> UnenrollFromCourse(UnenrollFromCourseRequestDTO model);
 		Task<ApiResponse> GetEnrolledCourses(string userId);
 		Task<ApiResponse> GetAvailableCourses(string userId);
+		Task<ApiResponse> GetStudentsInCourse(int courseId);
 
 	}
 }
