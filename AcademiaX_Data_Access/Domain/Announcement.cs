@@ -15,7 +15,12 @@ namespace AcademiaX_Data_Access.Domain
 		public string Title { get; set; }
 		public string Content { get; set; }
 		public DateTime DatePosted { get; set; }
-		public int UserId { get; set; }  
+
+		// Not: eskiden burası "int UserId" idi ama ApplicationUser.Id (IdentityUser) string —
+		// tip uyuşmazlığı yüzünden EF Core bu ilişkiyi gerçek FK olarak kuramıyor, sessizce
+		// "UserId1" adında ayrı bir shadow property/kolon üretiyordu (bkz. startup log uyarısı).
+		// String'e çevrilince gerçek bir FK ilişkisi kuruluyor.
+		public string UserId { get; set; }
 		public ApplicationUser User { get; set; }
 
 	}

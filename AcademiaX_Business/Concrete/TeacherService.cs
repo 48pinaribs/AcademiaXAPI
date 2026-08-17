@@ -1,6 +1,7 @@
 ﻿using AcademiaX_Core.Models;
 using AcademiaX_Business.Abstraction;
 using AcademiaX_Data_Access.Context;
+using AcademiaX_Data_Access.Domain;
 using AcademiaX_Data_Access.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
@@ -186,6 +187,199 @@ public class TeacherService : ITeacherService
 		response.IsSuccess = true;
 		response.Result = "Öğrenci derse başarıyla eklendi.";
 
+		return response;
+	}
+
+	// Course.TeacherId == requestingUserId değilse ve admin de değilse, bu dersle ilgili
+	// yazma/okuma işlemi reddedilir. Hem not girişi hem yoklama alma için ortak kontrol.
+	private async Task<(bool Allowed, ApiResponse Denied)> CanManageCourseAsync(int courseId, string requestingUserId, bool isAdmin)
+	{
+		var course = await _context.Courses.FirstOrDefaultAsync(c => c.Id == courseId);
+		if (course == null)
+		{
+			return (false, new ApiResponse { StatusCode = HttpStatusCode.NotFound, IsSuccess = false, ErrorMessages = { "Ders bulunamadı." } });
+		}
+
+		if (!isAdmin && course.TeacherId != requestingUserId)
+		{
+			return (false, new ApiResponse { StatusCode = HttpStatusCode.Forbidden, IsSuccess = false, ErrorMessages = { "Bu dersin öğretmeni değilsiniz." } });
+		}
+
+		return (true, null);
+	}
+
+	public async Task<ApiResponse> GetGradesForCourse(int courseId, string requestingUserId, bool isAdmin)
+	{
+		var response = new ApiResponse();
+
+		var (allowed, denied) = await CanManageCourseAsync(courseId, requestingUserId, isAdmin);
+		if (!allowed) return denied;
+
+		var grades = await _context.Grades
+			.Where(g => g.CourseId == courseId)
+			.Include(g => g.Student)
+			.Select(g => new GradeDTO
+			{
+				Id = g.Id,
+				StudentId = g.StudentId,
+				StudentName = g.Student.FirstName + " " + g.Student.LastName,
+				CourseId = g.CourseId,
+				ExamType = g.ExamType.ToString(),
+				Value = g.Value
+			})
+			.ToListAsync();
+
+		response.StatusCode = HttpStatusCode.OK;
+		response.IsSuccess = true;
+		response.Result = grades;
+		return response;
+	}
+
+	public async Task<ApiResponse> UpsertGrade(UpsertGradeRequestDTO model, string requestingUserId, bool isAdmin)
+	{
+		var response = new ApiResponse();
+
+		var (allowed, denied) = await CanManageCourseAsync(model.CourseId, requestingUserId, isAdmin);
+		if (!allowed) return denied;
+
+		if (!Enum.TryParse<ExamType>(model.ExamType, out var examType))
+		{
+			response.StatusCode = HttpStatusCode.BadRequest;
+			response.IsSuccess = false;
+			response.ErrorMessages.Add("Geçersiz sınav türü. (Midterm, Final, Resit)");
+			return response;
+		}
+
+		var student = await _context.ApplicationUsers
+			.FirstOrDefaultAsync(u => u.Id == model.StudentId && u.UserType == UserType.Student);
+		if (student == null)
+		{
+			response.StatusCode = HttpStatusCode.NotFound;
+			response.IsSuccess = false;
+			response.ErrorMessages.Add("Öğrenci bulunamadı.");
+			return response;
+		}
+
+		var isEnrolled = await _context.Courses
+			.Where(c => c.Id == model.CourseId)
+			.SelectMany(c => c.Students)
+			.AnyAsync(s => s.Id == model.StudentId);
+		if (!isEnrolled)
+		{
+			response.StatusCode = HttpStatusCode.BadRequest;
+			response.IsSuccess = false;
+			response.ErrorMessages.Add("Öğrenci bu derse kayıtlı değil.");
+			return response;
+		}
+
+		var grade = await _context.Grades.FirstOrDefaultAsync(g =>
+			g.StudentId == model.StudentId && g.CourseId == model.CourseId && g.ExamType == examType);
+
+		if (grade == null)
+		{
+			grade = new Grade
+			{
+				StudentId = model.StudentId,
+				CourseId = model.CourseId,
+				ExamType = examType,
+			};
+			_context.Grades.Add(grade);
+		}
+
+		grade.Value = model.Value;
+		// TotalGrade şimdilik tek bir sınav türünü yansıtıyor — Vize/Final ağırlıklandırması
+		// (örn. %40 Vize + %60 Final) ileride bir iş kuralı olarak eklenebilir.
+		grade.TotalGrade = model.Value;
+
+		await _context.SaveChangesAsync();
+
+		response.StatusCode = HttpStatusCode.OK;
+		response.IsSuccess = true;
+		response.Result = "Not kaydedildi.";
+		return response;
+	}
+
+	public async Task<ApiResponse> GetAttendanceForCourseDate(int courseId, DateTime date, string requestingUserId, bool isAdmin)
+	{
+		var response = new ApiResponse();
+
+		var (allowed, denied) = await CanManageCourseAsync(courseId, requestingUserId, isAdmin);
+		if (!allowed) return denied;
+
+		// Npgsql "timestamp with time zone" için Kind=Utc şart — query string'ten gelen DateTime
+		// Kind=Unspecified oluyor, aksi halde InvalidCastException fırlıyordu.
+		var dateOnly = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+		var records = await _context.Attendances
+			.Where(a => a.CourseId == courseId && a.Date == dateOnly)
+			.Select(a => new AttendanceRecordDTO { StudentId = a.StudentId, Status = a.Status.ToString() })
+			.ToListAsync();
+
+		response.StatusCode = HttpStatusCode.OK;
+		response.IsSuccess = true;
+		response.Result = records;
+		return response;
+	}
+
+	public async Task<ApiResponse> MarkAttendance(BulkMarkAttendanceRequestDTO model, string requestingUserId, bool isAdmin)
+	{
+		var response = new ApiResponse();
+
+		var (allowed, denied) = await CanManageCourseAsync(model.CourseId, requestingUserId, isAdmin);
+		if (!allowed) return denied;
+
+		var enrolledIds = await _context.Courses
+			.Where(c => c.Id == model.CourseId)
+			.SelectMany(c => c.Students)
+			.Select(s => s.Id)
+			.ToListAsync();
+		var enrolledSet = enrolledIds.ToHashSet();
+
+		var invalidStudentIds = model.Records.Select(r => r.StudentId).Where(id => !enrolledSet.Contains(id)).ToList();
+		if (invalidStudentIds.Count > 0)
+		{
+			response.StatusCode = HttpStatusCode.BadRequest;
+			response.IsSuccess = false;
+			response.ErrorMessages.Add("Bazı öğrenciler bu derse kayıtlı değil.");
+			return response;
+		}
+
+		var dateOnly = DateTime.SpecifyKind(model.Date.Date, DateTimeKind.Utc);
+		var existing = await _context.Attendances
+			.Where(a => a.CourseId == model.CourseId && a.Date == dateOnly)
+			.ToListAsync();
+		var existingByStudent = existing.ToDictionary(a => a.StudentId);
+
+		foreach (var record in model.Records)
+		{
+			if (!Enum.TryParse<AttendanceStatus>(record.Status, out var status))
+			{
+				response.StatusCode = HttpStatusCode.BadRequest;
+				response.IsSuccess = false;
+				response.ErrorMessages.Add($"Geçersiz durum: {record.Status} (Present, Absent, Excused)");
+				return response;
+			}
+
+			if (existingByStudent.TryGetValue(record.StudentId, out var attendance))
+			{
+				attendance.Status = status;
+			}
+			else
+			{
+				_context.Attendances.Add(new Attendance
+				{
+					StudentId = record.StudentId,
+					CourseId = model.CourseId,
+					Date = dateOnly,
+					Status = status,
+				});
+			}
+		}
+
+		await _context.SaveChangesAsync();
+
+		response.StatusCode = HttpStatusCode.OK;
+		response.IsSuccess = true;
+		response.Result = $"{model.Records.Count} öğrenci için yoklama kaydedildi.";
 		return response;
 	}
 

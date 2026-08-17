@@ -97,4 +97,40 @@ public class TeacherController : ApiControllerBase
 		var response = await _teacherService.GetMessages(teacherId);
 		return StatusCode((int)response.StatusCode, response);
 	}
+
+	// --- Not girişi ---
+
+	[HttpGet("grades/{courseId}")]
+	[Authorize(Roles = "Teacher,Administrator")]
+	public async Task<IActionResult> GetGradesForCourse(int courseId)
+	{
+		var response = await _teacherService.GetGradesForCourse(courseId, CurrentUserId, IsAdministrator);
+		return StatusCode((int)response.StatusCode, response);
+	}
+
+	[HttpPut("grades")]
+	[Authorize(Roles = "Teacher,Administrator")]
+	public async Task<IActionResult> UpsertGrade([FromBody] UpsertGradeRequestDTO model)
+	{
+		var response = await _teacherService.UpsertGrade(model, CurrentUserId, IsAdministrator);
+		return StatusCode((int)response.StatusCode, response);
+	}
+
+	// --- Yoklama alma ---
+
+	[HttpGet("attendance/{courseId}")]
+	[Authorize(Roles = "Teacher,Administrator")]
+	public async Task<IActionResult> GetAttendanceForCourseDate(int courseId, [FromQuery] DateTime date)
+	{
+		var response = await _teacherService.GetAttendanceForCourseDate(courseId, date, CurrentUserId, IsAdministrator);
+		return StatusCode((int)response.StatusCode, response);
+	}
+
+	[HttpPost("attendance")]
+	[Authorize(Roles = "Teacher,Administrator")]
+	public async Task<IActionResult> MarkAttendance([FromBody] BulkMarkAttendanceRequestDTO model)
+	{
+		var response = await _teacherService.MarkAttendance(model, CurrentUserId, IsAdministrator);
+		return StatusCode((int)response.StatusCode, response);
+	}
 }

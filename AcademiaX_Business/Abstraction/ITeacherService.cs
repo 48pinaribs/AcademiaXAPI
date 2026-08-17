@@ -29,5 +29,13 @@ namespace AcademiaX_Business.Abstraction
 
 		/// Öğretmenin gelen kutusundaki mesajları (öğrencilerden) getirir
 		Task<ApiResponse> GetMessages(string teacherId);
+
+		// --- Not girişi (yalnızca dersin öğretmeni ya da Admin) ---
+		Task<ApiResponse> GetGradesForCourse(int courseId, string requestingUserId, bool isAdmin);
+		Task<ApiResponse> UpsertGrade(UpsertGradeRequestDTO model, string requestingUserId, bool isAdmin);
+
+		// --- Yoklama alma (yalnızca dersin öğretmeni ya da Admin) ---
+		Task<ApiResponse> GetAttendanceForCourseDate(int courseId, System.DateTime date, string requestingUserId, bool isAdmin);
+		Task<ApiResponse> MarkAttendance(BulkMarkAttendanceRequestDTO model, string requestingUserId, bool isAdmin);
 	}
 }

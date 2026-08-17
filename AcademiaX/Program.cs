@@ -73,6 +73,7 @@ builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<ITeacherService, TeacherService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IGtfsService, GtfsService>();
+builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
 builder.Services.AddSwaggerGen(options =>
 {
 	// Swagger UI'dan "Authorize" ile Bearer token girip korumalı endpoint'leri test edebilmek için.
