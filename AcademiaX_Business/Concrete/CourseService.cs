@@ -144,7 +144,7 @@ namespace AcademiaX_Business.Concrete
 					Name = c.Name,
 					Code = c.Code,
 					Description = c.Description,
-				//	TotalStudents = c.Students.Count()
+					TotalStudents = c.Students.Count()
 				})
 				.FirstOrDefaultAsync();
 
@@ -247,6 +247,10 @@ namespace AcademiaX_Business.Concrete
 					Name = c.Name,
 					Code = c.Code,
 					Description = c.Description,
+					Credits = c.Credits,
+					TeacherId = c.TeacherId,
+					DepartmentId = c.DepartmentId,
+					SemesterId = c.SemesterId,
 					TotalStudents = c.Students.Count()
 				})
 				.ToListAsync();
