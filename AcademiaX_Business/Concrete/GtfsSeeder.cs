@@ -33,6 +33,24 @@ namespace AcademiaX_Business.Concrete
 			// Gidiş: Yurt -> Kampüs -> Kütüphane -> Mühendislik -> Şehir Merkezi (direction 0)
 			// Dönüş: aynı hat ters yönde (direction 1)
 			var gidisSirasi = new[] { "YURT", "KAMPUS", "KUTUPHANE", "MUHENDISLIK", "SEHIR" };
+
+			var (trips, stopTimes) = BuildSchedule(gidisSirasi, startHour: 7, endHour: 21, intervalMinutes: 60, minutesBetweenStops: 6, dwellMinutes: 2);
+
+			context.Stops.AddRange(stops);
+			context.Trips.AddRange(trips);
+			context.StopTimes.AddRange(stopTimes);
+
+			await context.SaveChangesAsync();
+		}
+
+		/// <summary>
+		/// Verilen durak sırasından (gidiş yönü) her iki yön için Trip/StopTime üretir.
+		/// Hem ilk seed (yukarıdaki SeedAsync) hem de admin'in "Zamanlamayı Yeniden Oluştur"
+		/// eylemi (bkz. GtfsService.RegenerateSchedule) bu tek mantığı paylaşır.
+		/// </summary>
+		public static (List<Trip> Trips, List<StopTime> StopTimes) BuildSchedule(
+			string[] gidisSirasi, int startHour, int endHour, int intervalMinutes, int minutesBetweenStops, int dwellMinutes)
+		{
 			var donusSirasi = gidisSirasi.Reverse().ToArray();
 
 			var trips = new List<Trip>();
@@ -40,24 +58,22 @@ namespace AcademiaX_Business.Concrete
 
 			void BuildDirection(string[] sira, int directionId)
 			{
-				// 07:00'dan 21:00'a kadar her saat başı bir dolmuş seferi.
-				for (int hour = 7; hour <= 21; hour++)
+				for (var minuteOfDay = startHour * 60; minuteOfDay <= endHour * 60; minuteOfDay += intervalMinutes)
 				{
-					var tripId = $"DOLMUS-{directionId}-{hour:00}00";
+					var tripId = $"DOLMUS-{directionId}-{minuteOfDay:0000}";
 					trips.Add(new Trip { TripId = tripId, RouteId = "DOLMUS", ServiceId = "HERGUN", DirectionId = directionId });
 
-					var baseTime = TimeSpan.FromHours(hour);
+					var baseTime = TimeSpan.FromMinutes(minuteOfDay);
 					for (int i = 0; i < sira.Length; i++)
 					{
-						// Duraklar arası ortalama 6 dakika, durakta 2 dakika bekleme.
-						var arrival = baseTime + TimeSpan.FromMinutes(i * 6);
+						var arrival = baseTime + TimeSpan.FromMinutes(i * minutesBetweenStops);
 						stopTimes.Add(new StopTime
 						{
 							TripId = tripId,
 							StopId = sira[i],
 							StopSequence = i + 1,
 							ArrivalTime = arrival,
-							DepartureTime = arrival + TimeSpan.FromMinutes(2),
+							DepartureTime = arrival + TimeSpan.FromMinutes(dwellMinutes),
 						});
 					}
 				}
@@ -66,11 +82,7 @@ namespace AcademiaX_Business.Concrete
 			BuildDirection(gidisSirasi, 0);
 			BuildDirection(donusSirasi, 1);
 
-			context.Stops.AddRange(stops);
-			context.Trips.AddRange(trips);
-			context.StopTimes.AddRange(stopTimes);
-
-			await context.SaveChangesAsync();
+			return (trips, stopTimes);
 		}
 	}
 }

@@ -1,4 +1,5 @@
 ﻿using AcademiaX_Business.Abstraction;
+using AcademiaX_Business.Dtos.Gtfs;
 using AcademiaX_Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -49,6 +50,37 @@ namespace AcademiaX.Controllers
 		public async Task<ApiResponse> GetRoutePlan([FromQuery] string fromStopId, [FromQuery] string toStopId, [FromQuery] string afterTime = null)
 		{
 			return await _gtfsService.GetRoutePlan(fromStopId, toStopId, afterTime);
+		}
+
+		// --- Admin: ring yönetimi ---
+
+		[HttpPost("stops")]
+		[Authorize(Roles = "Administrator")]
+		public async Task<ApiResponse> UpsertStop([FromBody] UpsertStopRequestDTO model)
+		{
+			return await _gtfsService.UpsertStop(model);
+		}
+
+		[HttpDelete("stops/{stopId}")]
+		[Authorize(Roles = "Administrator")]
+		public async Task<ApiResponse> DeleteStop(string stopId)
+		{
+			return await _gtfsService.DeleteStop(stopId);
+		}
+
+		// Var olan tüm sefer/zamanlama verisini silip yenisini üretir (bkz. GtfsSeeder.BuildSchedule).
+		[HttpPost("schedule/regenerate")]
+		[Authorize(Roles = "Administrator")]
+		public async Task<ApiResponse> RegenerateSchedule([FromBody] RegenerateScheduleRequestDTO model)
+		{
+			return await _gtfsService.RegenerateSchedule(model);
+		}
+
+		[HttpDelete("trips/{tripId}")]
+		[Authorize(Roles = "Administrator")]
+		public async Task<ApiResponse> DeleteTrip(string tripId)
+		{
+			return await _gtfsService.DeleteTrip(tripId);
 		}
 	}
 }

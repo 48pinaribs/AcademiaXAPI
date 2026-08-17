@@ -290,6 +290,167 @@ namespace AcademiaX_Business.Concrete
 			return response;
 		}
 
+		private void InvalidateCache()
+		{
+			_cache.Remove(StopsCacheKey);
+			_cache.Remove(TripsCacheKey);
+			_cache.Remove(StopTimesCacheKey);
+		}
+
+		public async Task<ApiResponse> UpsertStop(Dtos.Gtfs.UpsertStopRequestDTO model)
+		{
+			var response = new ApiResponse();
+			try
+			{
+				var stop = await _context.Stops.FirstOrDefaultAsync(s => s.StopId == model.StopId);
+				var isNew = stop == null;
+				if (isNew)
+				{
+					stop = new AcademiaX_Data_Access.Models.Stop { StopId = model.StopId };
+					_context.Stops.Add(stop);
+				}
+
+				stop.StopName = model.StopName;
+				stop.StopLat = model.StopLat;
+				stop.StopLon = model.StopLon;
+
+				await _context.SaveChangesAsync();
+				InvalidateCache();
+
+				response.StatusCode = System.Net.HttpStatusCode.OK;
+				response.IsSuccess = true;
+				response.Result = isNew ? "Durak eklendi." : "Durak güncellendi.";
+			}
+			catch (Exception ex)
+			{
+				LogAndSetGenericError(response, ex, nameof(UpsertStop));
+			}
+
+			return response;
+		}
+
+		public async Task<ApiResponse> DeleteStop(string stopId)
+		{
+			var response = new ApiResponse();
+			try
+			{
+				var stop = await _context.Stops.FirstOrDefaultAsync(s => s.StopId == stopId);
+				if (stop == null)
+				{
+					response.StatusCode = System.Net.HttpStatusCode.NotFound;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Durak bulunamadı.");
+					return response;
+				}
+
+				// Bu durağa ait StopTime kayıtları da temizlenir; kalan Trip'lerin sırası
+				// bozulur (eksik bir durakla kalır) — admin genelde bunun ardından
+				// "Zamanlamayı Yeniden Oluştur"u çalıştırmalı.
+				var relatedStopTimes = _context.StopTimes.Where(st => st.StopId == stopId);
+				_context.StopTimes.RemoveRange(relatedStopTimes);
+				_context.Stops.Remove(stop);
+
+				await _context.SaveChangesAsync();
+				InvalidateCache();
+
+				response.StatusCode = System.Net.HttpStatusCode.OK;
+				response.IsSuccess = true;
+				response.Result = "Durak silindi.";
+			}
+			catch (Exception ex)
+			{
+				LogAndSetGenericError(response, ex, nameof(DeleteStop));
+			}
+
+			return response;
+		}
+
+		public async Task<ApiResponse> RegenerateSchedule(Dtos.Gtfs.RegenerateScheduleRequestDTO model)
+		{
+			var response = new ApiResponse();
+			try
+			{
+				if (model.EndHour < model.StartHour)
+				{
+					response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Bitiş saati başlangıç saatinden önce olamaz.");
+					return response;
+				}
+
+				var existingStopIds = (await _context.Stops.Select(s => s.StopId).ToListAsync()).ToHashSet();
+				var missing = model.StopIdsInOrder.Where(id => !existingStopIds.Contains(id)).ToList();
+				if (missing.Count > 0)
+				{
+					response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add($"Tanımlı olmayan durak(lar): {string.Join(", ", missing)}");
+					return response;
+				}
+
+				// Var olan tüm sefer verisini sil, yerine yenisini koy.
+				_context.StopTimes.RemoveRange(_context.StopTimes);
+				_context.Trips.RemoveRange(_context.Trips);
+				await _context.SaveChangesAsync();
+
+				var (trips, stopTimes) = GtfsSeeder.BuildSchedule(
+					model.StopIdsInOrder.ToArray(),
+					model.StartHour,
+					model.EndHour,
+					model.IntervalMinutes,
+					model.MinutesBetweenStops,
+					model.DwellMinutes);
+
+				_context.Trips.AddRange(trips);
+				_context.StopTimes.AddRange(stopTimes);
+				await _context.SaveChangesAsync();
+				InvalidateCache();
+
+				response.StatusCode = System.Net.HttpStatusCode.OK;
+				response.IsSuccess = true;
+				response.Result = $"{trips.Count} sefer, {stopTimes.Count} durak-zamanı oluşturuldu.";
+			}
+			catch (Exception ex)
+			{
+				LogAndSetGenericError(response, ex, nameof(RegenerateSchedule));
+			}
+
+			return response;
+		}
+
+		public async Task<ApiResponse> DeleteTrip(string tripId)
+		{
+			var response = new ApiResponse();
+			try
+			{
+				var trip = await _context.Trips.FirstOrDefaultAsync(t => t.TripId == tripId);
+				if (trip == null)
+				{
+					response.StatusCode = System.Net.HttpStatusCode.NotFound;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Sefer bulunamadı.");
+					return response;
+				}
+
+				var relatedStopTimes = _context.StopTimes.Where(st => st.TripId == tripId);
+				_context.StopTimes.RemoveRange(relatedStopTimes);
+				_context.Trips.Remove(trip);
+
+				await _context.SaveChangesAsync();
+				InvalidateCache();
+
+				response.StatusCode = System.Net.HttpStatusCode.OK;
+				response.IsSuccess = true;
+				response.Result = "Sefer iptal edildi.";
+			}
+			catch (Exception ex)
+			{
+				LogAndSetGenericError(response, ex, nameof(DeleteTrip));
+			}
+
+			return response;
+		}
+
 		private void LogAndSetGenericError(ApiResponse response, Exception ex, string operation)
 		{
 			_logger.LogError(ex, "GtfsService.{Operation} failed", operation);
