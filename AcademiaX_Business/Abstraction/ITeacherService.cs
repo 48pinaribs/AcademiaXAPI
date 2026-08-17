@@ -26,5 +26,8 @@ namespace AcademiaX_Business.Abstraction
 
 		/// Öğrenciyi derse atar
 		Task<ApiResponse> AssignStudentToCourse(EnrollInCourseRequestDTO model);
+
+		/// Öğretmenin gelen kutusundaki mesajları (öğrencilerden) getirir
+		Task<ApiResponse> GetMessages(string teacherId);
 	}
 }

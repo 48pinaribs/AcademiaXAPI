@@ -133,5 +133,14 @@ namespace AcademiaX.Controllers
 			var response = await _studentService.SendMessageToAdvisor(model.StudentId, model.Content);
 			return StatusCode((int)response.StatusCode, response);
 		}
+
+		// PUT: api/student/advisor — bir öğrenciye danışman (Teacher) atar/kaldırır. Sadece Admin.
+		[HttpPut("advisor")]
+		[Authorize(Roles = "Administrator")]
+		public async Task<IActionResult> AssignAdvisor([FromBody] AssignAdvisorRequestDTO model)
+		{
+			var response = await _studentService.AssignAdvisor(model);
+			return StatusCode((int)response.StatusCode, response);
+		}
 	}
 }

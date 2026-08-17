@@ -1,4 +1,5 @@
-﻿using AcademiaX_Core.Models;
+﻿using AcademiaX_Business.Dtos;
+using AcademiaX_Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace AcademiaX_Business.Abstraction
 		Task<ApiResponse> DropCourse(string studentId, int courseId);
 
 		Task<ApiResponse> SendMessageToAdvisor(string studentId, string message);
+		Task<ApiResponse> AssignAdvisor(AssignAdvisorRequestDTO model);
 		Task<ApiResponse> GetAttendance(string studentId);
 	}
 }

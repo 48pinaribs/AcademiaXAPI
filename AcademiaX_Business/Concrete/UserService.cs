@@ -193,6 +193,12 @@ namespace AcademiaX_Business.Concrete
 			if (!string.IsNullOrWhiteSpace(model.PhoneNumber)) user.PhoneNumber = model.PhoneNumber;
 			if (!string.IsNullOrWhiteSpace(model.Address)) user.Address = model.Address;
 			if (!string.IsNullOrWhiteSpace(model.Image)) user.Image = model.Image;
+			// Öğretim üyesi profili genişletilmiş alanlar (Bölüm/Unvan/Oda/Biyografi) — sadece
+			// gönderilmişse güncellenir, diğer roller bu alanları hiç göndermez.
+			if (model.Branch != null) user.Branch = model.Branch;
+			if (model.Title != null) user.Title = model.Title;
+			if (model.Office != null) user.Office = model.Office;
+			if (model.Biography != null) user.Biography = model.Biography;
 
 			var result = await _userManager.UpdateAsync(user);
 			if (!result.Succeeded)
@@ -232,7 +238,13 @@ namespace AcademiaX_Business.Concrete
 				user.PhoneNumber,
 				user.Image,
 				user.UserName,
-				Role = role
+				Role = role,
+				// Sadece Teacher rolünde ProfilePage'de düzenlenebilir, ama görüntüleme için
+				// her zaman döndürülür (boşsa null gelir, UI role bazlı gösterir).
+				user.Branch,
+				user.Title,
+				user.Office,
+				user.Biography
 			};
 
 			_response.IsSuccess = true;

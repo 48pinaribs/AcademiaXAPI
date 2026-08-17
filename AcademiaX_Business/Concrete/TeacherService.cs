@@ -188,4 +188,29 @@ public class TeacherService : ITeacherService
 
 		return response;
 	}
+
+	public async Task<ApiResponse> GetMessages(string teacherId)
+	{
+		var response = new ApiResponse();
+
+		var messages = await _context.Messages
+			.Where(m => m.ReceiverId == teacherId)
+			.Include(m => m.Sender)
+			.OrderByDescending(m => m.SentAt)
+			.Select(m => new MessageDTO
+			{
+				Id = m.Id,
+				SenderId = m.SenderId,
+				SenderName = m.Sender.FirstName + " " + m.Sender.LastName,
+				Content = m.Content,
+				SentAt = m.SentAt,
+				IsRead = m.IsRead
+			})
+			.ToListAsync();
+
+		response.StatusCode = HttpStatusCode.OK;
+		response.IsSuccess = true;
+		response.Result = messages;
+		return response;
+	}
 }

@@ -83,4 +83,18 @@ public class TeacherController : ApiControllerBase
 		var response = await _teacherService.AssignStudentToCourse(model);
 		return StatusCode((int)response.StatusCode, response);
 	}
+
+	// GET: api/teacher/messages/{teacherId} — öğrencilerden gelen danışmanlık mesajları.
+	[HttpGet("messages/{teacherId}")]
+	[Authorize(Roles = "Teacher,Administrator")]
+	public async Task<IActionResult> GetMessages(string teacherId)
+	{
+		if (!CanAccessOwnResource(teacherId))
+		{
+			return Forbid();
+		}
+
+		var response = await _teacherService.GetMessages(teacherId);
+		return StatusCode((int)response.StatusCode, response);
+	}
 }

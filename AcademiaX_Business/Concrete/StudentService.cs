@@ -201,11 +201,20 @@ namespace AcademiaX_Business.Concrete
 				return response;
 			}
 
-			// Şimdilik advisorId sabit, ileride eşleştirme yapılabilir
+			// Message.ReceiverId [Required] olduğu için AdvisorId boşken insert DB hatası
+			// fırlatırdı — bunun yerine anlamlı bir hata dönüyoruz.
+			if (string.IsNullOrEmpty(student.AdvisorId))
+			{
+				response.StatusCode = HttpStatusCode.BadRequest;
+				response.IsSuccess = false;
+				response.ErrorMessages.Add("Henüz bir danışmanınız atanmamış. Lütfen yönetim ile iletişime geçin.");
+				return response;
+			}
+
 			var newMessage = new Message
 			{
 				SenderId = studentId,
-				ReceiverId = student.AdvisorId, // AdvisorId alanı varsa
+				ReceiverId = student.AdvisorId,
 				Content = message,
 				SentAt = DateTime.UtcNow
 			};
@@ -216,6 +225,50 @@ namespace AcademiaX_Business.Concrete
 			response.StatusCode = HttpStatusCode.OK;
 			response.IsSuccess = true;
 			response.Result = "Message sent.";
+			return response;
+		}
+
+		public async Task<ApiResponse> AssignAdvisor(AssignAdvisorRequestDTO model)
+		{
+			var response = new ApiResponse();
+
+			var student = await _context.ApplicationUsers
+				.FirstOrDefaultAsync(u => u.Id == model.StudentId && u.UserType == UserType.Student);
+
+			if (student == null)
+			{
+				response.StatusCode = HttpStatusCode.NotFound;
+				response.IsSuccess = false;
+				response.ErrorMessages.Add("Öğrenci bulunamadı.");
+				return response;
+			}
+
+			if (string.IsNullOrEmpty(model.AdvisorId))
+			{
+				// null/boş gönderildiğinde danışman ataması kaldırılır.
+				student.AdvisorId = null;
+			}
+			else
+			{
+				var advisor = await _context.ApplicationUsers
+					.FirstOrDefaultAsync(u => u.Id == model.AdvisorId && u.UserType == UserType.Teacher);
+
+				if (advisor == null)
+				{
+					response.StatusCode = HttpStatusCode.BadRequest;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Seçilen danışman geçerli bir öğretim üyesi değil.");
+					return response;
+				}
+
+				student.AdvisorId = advisor.Id;
+			}
+
+			await _context.SaveChangesAsync();
+
+			response.StatusCode = HttpStatusCode.OK;
+			response.IsSuccess = true;
+			response.Result = "Danışman ataması güncellendi.";
 			return response;
 		}
 
