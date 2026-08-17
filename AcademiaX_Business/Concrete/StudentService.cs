@@ -21,16 +21,9 @@ namespace AcademiaX_Business.Concrete
 		{
 			var response = new ApiResponse();
 			var students = await _context.ApplicationUsers
-	      .Where(u => u.UserType == UserType.Student)
-	    .Select(u => new PersonDTO
-    	{
-		Id = u.Id,
-		FullName = u.FirstName + " " + u.LastName,
-		Email = u.Email,
-		PhoneNumber = u.PhoneNumber,
-		Image = u.Image
-    	})
-	   .ToListAsync();
+				.Where(u => u.UserType == UserType.Student)
+				.Select(PersonProjections.ToPersonDto)
+				.ToListAsync();
 
 			response.StatusCode = HttpStatusCode.OK;
 			response.IsSuccess = true;
@@ -43,14 +36,7 @@ namespace AcademiaX_Business.Concrete
 			var response = new ApiResponse();
 			var student = await _context.ApplicationUsers
 				.Where(u => u.UserType == UserType.Student && u.Id == studentId)
-				.Select(u => new PersonDTO
-				{
-					Id = u.Id,
-					FullName = u.FirstName + " " + u.LastName,
-					Email = u.Email,
-					PhoneNumber = u.PhoneNumber,
-					Image = u.Image
-				})
+				.Select(PersonProjections.ToPersonDto)
 				.FirstOrDefaultAsync();
 			if (student == null)
 			{
@@ -69,7 +55,12 @@ namespace AcademiaX_Business.Concrete
 		{
 			var response = new ApiResponse();
 
-			var user = await _context.ApplicationUsers.FindAsync(userId);
+			// Not: önceden FindAsync kullanılıyordu, bu Advisor navigation'ını Include edemiyordu
+			// ve Department/GPA/Biography gibi gerçekten var olan alanlar DTO'ya hiç konmuyordu
+			// (UserDetail.jsx bu alanları gösteriyor ama her zaman boş geliyordu).
+			var user = await _context.ApplicationUsers
+				.Include(u => u.Advisor)
+				.FirstOrDefaultAsync(u => u.Id == userId);
 
 			if (user == null || user.UserType != UserType.Student)
 			{
@@ -86,7 +77,10 @@ namespace AcademiaX_Business.Concrete
 				Email = user.Email,
 				Phone = user.PhoneNumber,
 				Image = user.Image,
-
+				Department = user.Department,
+				GPA = user.GPA,
+				Biography = user.Biography,
+				AdvisorName = user.Advisor != null ? user.Advisor.FirstName + " " + user.Advisor.LastName : null,
 			};
 
 			response.StatusCode = HttpStatusCode.OK;
@@ -141,28 +135,17 @@ namespace AcademiaX_Business.Concrete
 		{
 			var response = new ApiResponse();
 
-			var course = await _context.Courses.Include(c => c.Students)
-				.FirstOrDefaultAsync(c => c.Id == courseId);
+			// Ortak "öğrenciyi derse ekle" mantığı: bkz. CourseEnrollmentHelper (önceden bu kod
+			// CourseService/StudentService/TeacherService'te üç kez tekrarlanıyordu).
+			var result = await CourseEnrollmentHelper.EnrollStudentAsync(_context, courseId, studentId, requireStudentRole: true);
 
-			if (course == null)
+			if (!result.Success)
 			{
-				response.StatusCode = HttpStatusCode.NotFound;
+				response.StatusCode = result.NotFound ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest;
 				response.IsSuccess = false;
-				response.ErrorMessages.Add("Course not found.");
+				response.ErrorMessages.Add(result.ErrorMessage);
 				return response;
 			}
-
-			var student = await _context.ApplicationUsers.FindAsync(studentId);
-			if (student == null || student.UserType != UserType.Student)
-			{
-				response.StatusCode = HttpStatusCode.BadRequest;
-				response.IsSuccess = false;
-				response.ErrorMessages.Add("Invalid student.");
-				return response;
-			}
-
-			course.Students.Add(student);
-			await _context.SaveChangesAsync();
 
 			response.StatusCode = HttpStatusCode.OK;
 			response.IsSuccess = true;

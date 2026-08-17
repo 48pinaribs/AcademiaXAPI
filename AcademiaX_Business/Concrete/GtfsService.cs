@@ -1,33 +1,97 @@
-﻿using AcademiaX_Business.Abstraction;
+using AcademiaX_Business.Abstraction;
 using AcademiaX_Business.Dtos.Gtfs;
-using AcademiaX_Core.Configuration;
 using AcademiaX_Core.Models;
-using Microsoft.Extensions.Options;
-using System.Globalization;
-using System.IO.Compression;
+using AcademiaX_Data_Access.Context;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace AcademiaX_Business.Concrete
 {
 	public class GtfsService : IGtfsService
 	{
-		private readonly string zipPath;
+		private const string StopsCacheKey = "gtfs:stops";
+		private const string TripsCacheKey = "gtfs:trips";
+		private const string StopTimesCacheKey = "gtfs:stop_times";
+		private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
-		public GtfsService(IOptions<GtfsSettings> options)
+		private readonly ApplicationDbContext _context;
+		private readonly IMemoryCache _cache;
+		private readonly ILogger<GtfsService> _logger;
+
+		// Not: eskiden bu sınıf diskteki bir GTFS zip dosyasını (appsettings: GtfsSettings:DataPath)
+		// okuyordu. Dosya yerel bir yoldaydı, bulut ortamında hiç var olmuyordu ve yerelde de
+		// kaybolabiliyordu — nitekim öyle oldu. Artık veri, uygulamayla birlikte taşınan
+		// Stops/Trips/StopTimes tablolarından (bkz. GtfsSeeder) okunuyor.
+		public GtfsService(ApplicationDbContext context, IMemoryCache cache, ILogger<GtfsService> logger)
 		{
-			zipPath = options.Value.DataPath; // Bu artık gtfs.zip dosyasının yolu
+			_context = context;
+			_cache = cache;
+			_logger = logger;
 		}
 
-		private IEnumerable<string> ReadLinesFromZip(string fileName)
+		private async Task<List<StopDTO>> LoadStopsAsync()
 		{
-			using var zip = ZipFile.OpenRead(zipPath);
-			var entry = zip.GetEntry(fileName);
-			if (entry == null) throw new FileNotFoundException($"{fileName} not found in GTFS archive.");
-
-			using var reader = new StreamReader(entry.Open());
-			while (!reader.EndOfStream)
+			if (_cache.TryGetValue(StopsCacheKey, out List<StopDTO> cached))
 			{
-				yield return reader.ReadLine();
+				return cached;
 			}
+
+			var stops = await _context.Stops
+				.Select(s => new StopDTO
+				{
+					StopId = s.StopId,
+					StopName = s.StopName,
+					StopLat = s.StopLat,
+					StopLon = s.StopLon,
+				})
+				.ToListAsync();
+
+			_cache.Set(StopsCacheKey, stops, CacheDuration);
+			return stops;
+		}
+
+		private async Task<List<TripDTO>> LoadTripsAsync()
+		{
+			if (_cache.TryGetValue(TripsCacheKey, out List<TripDTO> cached))
+			{
+				return cached;
+			}
+
+			var trips = await _context.Trips
+				.Select(t => new TripDTO
+				{
+					TripId = t.TripId,
+					RouteId = t.RouteId,
+					ServiceId = t.ServiceId,
+					DirectionId = t.DirectionId,
+				})
+				.ToListAsync();
+
+			_cache.Set(TripsCacheKey, trips, CacheDuration);
+			return trips;
+		}
+
+		private async Task<List<StopTimeDTO>> LoadStopTimesAsync()
+		{
+			if (_cache.TryGetValue(StopTimesCacheKey, out List<StopTimeDTO> cached))
+			{
+				return cached;
+			}
+
+			var stopTimes = await _context.StopTimes
+				.Select(st => new StopTimeDTO
+				{
+					TripId = st.TripId,
+					StopId = st.StopId,
+					StopSequence = st.StopSequence,
+					ArrivalTime = st.ArrivalTime.ToString(@"hh\:mm\:ss"),
+					DepartureTime = st.DepartureTime.ToString(@"hh\:mm\:ss"),
+				})
+				.ToListAsync();
+
+			_cache.Set(StopTimesCacheKey, stopTimes, CacheDuration);
+			return stopTimes;
 		}
 
 		public async Task<ApiResponse> GetStops()
@@ -35,28 +99,13 @@ namespace AcademiaX_Business.Concrete
 			var response = new ApiResponse();
 			try
 			{
-				var result = ReadLinesFromZip("stops.txt").Skip(1)
-					.Select(line =>
-					{
-						var p = line.Split(',');
-						return new StopDTO
-						{
-							StopId = p[0],
-							StopName = p[1],
-							StopLat = double.TryParse(p[2], NumberStyles.Any, CultureInfo.InvariantCulture, out var lat) ? lat : 0,
-							StopLon = double.TryParse(p[3], NumberStyles.Any, CultureInfo.InvariantCulture, out var lon) ? lon : 0,
-						};
-					}).ToList();
-
-				response.Result = result;
+				response.Result = await LoadStopsAsync();
 				response.IsSuccess = true;
 				response.StatusCode = System.Net.HttpStatusCode.OK;
 			}
 			catch (Exception ex)
 			{
-				response.IsSuccess = false;
-				response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
-				response.ErrorMessages.Add(ex.Message);
+				LogAndSetGenericError(response, ex, nameof(GetStops));
 			}
 
 			return response;
@@ -67,28 +116,13 @@ namespace AcademiaX_Business.Concrete
 			var response = new ApiResponse();
 			try
 			{
-				var result = ReadLinesFromZip("trips.txt").Skip(1)
-					.Select(line =>
-					{
-						var p = line.Split(',');
-						return new TripDTO
-						{
-							TripId = p[2],
-							RouteId = p[0],
-							ServiceId = p[1],
-							DirectionId = int.Parse(p[3])
-						};
-					}).ToList();
-
-				response.Result = result;
+				response.Result = await LoadTripsAsync();
 				response.IsSuccess = true;
 				response.StatusCode = System.Net.HttpStatusCode.OK;
 			}
 			catch (Exception ex)
 			{
-				response.IsSuccess = false;
-				response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
-				response.ErrorMessages.Add(ex.Message);
+				LogAndSetGenericError(response, ex, nameof(GetTrips));
 			}
 
 			return response;
@@ -99,32 +133,13 @@ namespace AcademiaX_Business.Concrete
 			var response = new ApiResponse();
 			try
 			{
-				var result = ReadLinesFromZip("stop_times.txt").Skip(1)
-					.Select(line =>
-					{
-						var p = line.Split(',');
-						var arrival = TimeSpan.Parse(p[1]);
-						var departure = arrival.Add(TimeSpan.FromMinutes(5));
-
-						return new StopTimeDTO
-						{
-							TripId = p[0],
-							ArrivalTime = arrival.ToString(@"hh\:mm\:ss"),
-							DepartureTime = departure.ToString(@"hh\:mm\:ss"),
-							StopId = p[3],
-							StopSequence = int.Parse(p[4])
-						};
-					}).ToList();
-
-				response.Result = result;
+				response.Result = await LoadStopTimesAsync();
 				response.IsSuccess = true;
 				response.StatusCode = System.Net.HttpStatusCode.OK;
 			}
 			catch (Exception ex)
 			{
-				response.IsSuccess = false;
-				response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
-				response.ErrorMessages.Add(ex.Message);
+				LogAndSetGenericError(response, ex, nameof(GetStopTimes));
 			}
 
 			return response;
@@ -135,26 +150,15 @@ namespace AcademiaX_Business.Concrete
 			var response = new ApiResponse();
 			try
 			{
-				var trips = ReadLinesFromZip("trips.txt").Skip(1)
-					.Select(l => l.Split(',')).Where(p => int.Parse(p[3]) == directionId).Select(p => p[2]).ToHashSet();
+				var trips = (await LoadTripsAsync())
+					.Where(t => t.DirectionId == directionId)
+					.Select(t => t.TripId)
+					.ToHashSet();
 
-				var stopTimes = ReadLinesFromZip("stop_times.txt").Skip(1)
-					.Select(p => p.Split(','))
-					.Where(p => p[3] == stopId && trips.Contains(p[0]))
-					.Select(p =>
-					{
-						var arrival = TimeSpan.Parse(p[1]);
-						var departure = arrival.Add(TimeSpan.FromMinutes(5));
-						return new StopTimeDTO
-						{
-							TripId = p[0],
-							ArrivalTime = arrival.ToString(@"hh\:mm\:ss"),
-							DepartureTime = departure.ToString(@"hh\:mm\:ss"),
-							StopId = p[3],
-							StopSequence = int.Parse(p[4])
-						};
-					})
-					.OrderBy(p => p.ArrivalTime).ToList();
+				var stopTimes = (await LoadStopTimesAsync())
+					.Where(st => st.StopId == stopId && trips.Contains(st.TripId))
+					.OrderBy(st => st.ArrivalTime)
+					.ToList();
 
 				response.Result = stopTimes;
 				response.IsSuccess = true;
@@ -162,12 +166,18 @@ namespace AcademiaX_Business.Concrete
 			}
 			catch (Exception ex)
 			{
-				response.IsSuccess = false;
-				response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
-				response.ErrorMessages.Add(ex.Message);
+				LogAndSetGenericError(response, ex, nameof(GetStopTimeTable));
 			}
 
 			return response;
+		}
+
+		private void LogAndSetGenericError(ApiResponse response, Exception ex, string operation)
+		{
+			_logger.LogError(ex, "GtfsService.{Operation} failed", operation);
+			response.IsSuccess = false;
+			response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
+			response.ErrorMessages.Add("Ulaşım verisi alınırken bir hata oluştu.");
 		}
 	}
 }

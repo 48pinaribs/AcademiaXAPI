@@ -1,0 +1,14 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+
+  "// NOT": "Bu dosyayı appsettings.Development.json olarak kopyalayıp kendi makinenize özel gerçek değerleri girin. O dosya .gitignore'dadır, bu örnek dosya ise commit edilir.",
+  "ConnectionStrings": { "DefaultConnection": "server=YOUR_SQL_SERVER_INSTANCE;database=AcademiaX;Trusted_Connection=True;TrustServerCertificate=True;" },
+  "SecretKey": {
+    "jwtKey": "REPLACE_WITH_A_RANDOM_STRING_AT_LEAST_32_CHARACTERS_LONG"
+  }
+}

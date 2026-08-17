@@ -4,7 +4,6 @@ using AcademiaX_Core.Models;
 using AcademiaX_Data_Access.Context;
 using AcademiaX_Data_Access.Enums;
 using AcademiaX_Data_Access.Models;
-using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -22,18 +21,14 @@ namespace AcademiaX_Business.Concrete
 	public class UserService : IUserService
 	{
 		private readonly ApplicationDbContext _context;
-		private readonly IMapper _mapper;
 		private readonly ApiResponse _response;
 		private readonly UserManager<ApplicationUser> _userManager;
-		private readonly RoleManager<IdentityRole> _roleManager;
 		private string secretKey;
 
-		public UserService(RoleManager<IdentityRole> roleManager,UserManager<ApplicationUser> userManager, ApiResponse response, IMapper mapper, IConfiguration configuration, ApplicationDbContext context)
+		public UserService(UserManager<ApplicationUser> userManager, ApiResponse response, IConfiguration configuration, ApplicationDbContext context)
 		{
 			_userManager = userManager;
-			_roleManager = roleManager;
 			_response = response;
-			_mapper = mapper;
 			_context = context;
 			secretKey = configuration.GetValue<string>("SecretKey:jwtKey");
 		}
@@ -98,9 +93,32 @@ namespace AcademiaX_Business.Concrete
 
 
 		
-		public  async Task<ApiResponse> Register(RegisterRequestDTO model)
+		public async Task<ApiResponse> Register(RegisterRequestDTO model)
 		{
-			var userFromDb = _context.ApplicationUsers.FirstOrDefault(x=>x.UserName.ToLower() == model.UserName.ToLower());
+			// GÜVENLİK: Bu, herkese açık (anonim) kayıt uç noktasıdır. İstemciden gelen UserType
+			// alanına GÜVENİLMEZ — aksi halde herhangi biri kendini Administrator/Teacher yapabilir.
+			// Public kayıt her zaman Student rolü verir. Teacher/Administrator hesapları yalnızca
+			// CreateStaffUser (Administrator yetkisi gerektirir) ile açılabilir.
+			return await CreateUserInternal(model, UserType.Student);
+		}
+
+		public async Task<ApiResponse> CreateStaffUser(RegisterRequestDTO model)
+		{
+			if (!Enum.TryParse<UserType>(model.UserType, true, out var requestedType) ||
+				requestedType == UserType.Student)
+			{
+				_response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+				_response.IsSuccess = false;
+				_response.ErrorMessages.Add("UserType 'Teacher' veya 'Administrator' olmalı.");
+				return _response;
+			}
+
+			return await CreateUserInternal(model, requestedType);
+		}
+
+		private async Task<ApiResponse> CreateUserInternal(RegisterRequestDTO model, UserType roleToAssign)
+		{
+			var userFromDb = _context.ApplicationUsers.FirstOrDefault(x => x.UserName.ToLower() == model.UserName.ToLower());
 			if (userFromDb != null)
 			{
 				_response.StatusCode = System.Net.HttpStatusCode.BadRequest;
@@ -109,57 +127,88 @@ namespace AcademiaX_Business.Concrete
 				return _response;
 			}
 
-			//var newUser = _mapper.Map<ApplicationUser>(model);
-
 			ApplicationUser newUser = new()
 			{
 				UserName = model.UserName,
 				Email = model.Email,
-				UserType = Enum.TryParse<UserType>(model.UserType, true, out var userType) ? userType : null,
-				PasswordHash = model.Password,
+				UserType = roleToAssign,
+				// PasswordHash burada atanmaz: aşağıdaki CreateAsync(user, password) çağrısı
+				// şifreyi Identity'nin kendi hash algoritmasıyla güvenli şekilde hash'ler.
 				PhoneNumber = model.PhoneNumber,
 				FirstName = model.FirstName,
 				LastName = model.LastName,
 				Image = model.Image,
-
 			};
 
-			var result = await _userManager.CreateAsync(newUser, model.Password); //ASP.NET Core Identity sisteminde yeni bir kullanıcıyı veritabanına eklemek için kullanılır.
+			var result = await _userManager.CreateAsync(newUser, model.Password);
 
-
-
-			//ASP.NET Core Identity sisteminde kayıt olan kullanıcıya uygun rol atamak için kullanılıyor.
-			if (result.Succeeded)
+			if (!result.Succeeded)
 			{
-				var isTrue = _roleManager.RoleExistsAsync(UserType.Administrator.ToString()).GetAwaiter().GetResult();
-				if (!_roleManager.RoleExistsAsync(UserType.Administrator.ToString()).GetAwaiter().GetResult())
+				_response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+				_response.IsSuccess = false;
+				foreach (var error in result.Errors)
 				{
-					await _roleManager.CreateAsync(new IdentityRole(UserType.Administrator.ToString()));
-					await _roleManager.CreateAsync(new IdentityRole(UserType.Student.ToString()));
-					await _roleManager.CreateAsync(new IdentityRole(UserType.Teacher.ToString()));
+					_response.ErrorMessages.Add(error.Description);
 				}
-				if (model.UserType.ToString().ToLower() == UserType.Administrator.ToString().ToLower())
-				{
-					await _userManager.AddToRoleAsync(newUser, UserType.Administrator.ToString());
-				}
-				if (model.UserType.ToString().ToLower() == UserType.Student.ToString().ToLower())
-				{
-					await _userManager.AddToRoleAsync(newUser, UserType.Student.ToString());
-				}
-				else if (model.UserType.ToString().ToLower() == UserType.Teacher.ToString().ToLower())
-				{
-					await _userManager.AddToRoleAsync(newUser, UserType.Teacher.ToString());
-				}
-				_response.StatusCode = System.Net.HttpStatusCode.Created;
-				_response.IsSuccess = true;
 				return _response;
 			}
-			foreach (var error in result.Errors)
-			{
-				_response.ErrorMessages.Add(error.ToString());
-			}
-			return _response;
 
+			await _userManager.AddToRoleAsync(newUser, roleToAssign.ToString());
+
+			_response.StatusCode = System.Net.HttpStatusCode.Created;
+			_response.IsSuccess = true;
+			return _response;
+		}
+
+		public async Task<ApiResponse> GetUserType(string userId)
+		{
+			var user = await _userManager.FindByIdAsync(userId);
+			if (user == null)
+			{
+				_response.StatusCode = System.Net.HttpStatusCode.NotFound;
+				_response.IsSuccess = false;
+				_response.ErrorMessages.Add("Kullanıcı bulunamadı.");
+				return _response;
+			}
+
+			_response.StatusCode = System.Net.HttpStatusCode.OK;
+			_response.IsSuccess = true;
+			_response.Result = user.UserType?.ToString();
+			return _response;
+		}
+
+		public async Task<ApiResponse> UpdateProfile(UpdateProfileRequestDTO model)
+		{
+			var user = await _userManager.FindByIdAsync(model.Id);
+			if (user == null)
+			{
+				_response.StatusCode = System.Net.HttpStatusCode.NotFound;
+				_response.IsSuccess = false;
+				_response.ErrorMessages.Add("Kullanıcı bulunamadı.");
+				return _response;
+			}
+
+			user.FirstName = model.FirstName;
+			user.LastName = model.LastName;
+			if (!string.IsNullOrWhiteSpace(model.PhoneNumber)) user.PhoneNumber = model.PhoneNumber;
+			if (!string.IsNullOrWhiteSpace(model.Address)) user.Address = model.Address;
+			if (!string.IsNullOrWhiteSpace(model.Image)) user.Image = model.Image;
+
+			var result = await _userManager.UpdateAsync(user);
+			if (!result.Succeeded)
+			{
+				_response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+				_response.IsSuccess = false;
+				foreach (var error in result.Errors)
+				{
+					_response.ErrorMessages.Add(error.Description);
+				}
+				return _response;
+			}
+
+			_response.StatusCode = System.Net.HttpStatusCode.OK;
+			_response.IsSuccess = true;
+			return _response;
 		}
 
 		public async Task<ApiResponse> GetUserById(string userId)

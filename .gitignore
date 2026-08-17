@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Gerçek secret/bağlantı dizesi/kişisel dosya yolu içerdiği için commit edilmemeli.
+# Yeni bir makinede appsettings.Development.json'ı appsettings.Development.json.example'dan kopyalayıp
+# kendi değerlerinizi girin (bkz. AcademiaX/appsettings.Development.json.example).
+AcademiaX/appsettings.Development.json

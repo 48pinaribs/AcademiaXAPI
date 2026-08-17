@@ -7,6 +7,8 @@ using AcademiaX_Data_Access.Enums;
 using AcademiaX_Data_Access.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -17,10 +19,12 @@ namespace AcademiaX_Business.Concrete
 	public class CourseService : ICourseService
 	{
 		private readonly ApplicationDbContext _context;
+		private readonly ILogger<CourseService> _logger;
 
-		public CourseService(ApplicationDbContext context)
+		public CourseService(ApplicationDbContext context, ILogger<CourseService> logger)
 		{
 			_context = context;
+			_logger = logger;
 		}
 
 		public async Task<ApiResponse> CreateCourse(CreateCourseRequestDTO model)
@@ -111,6 +115,10 @@ namespace AcademiaX_Business.Concrete
 					Name = c.Name,
 					Code = c.Code,
 					Description = c.Description,
+					Credits = c.Credits,
+					DepartmentId = c.DepartmentId,
+					SemesterId = c.SemesterId,
+					TeacherId = c.TeacherId,
 					TotalStudents = c.Students.Count()
 				}).ToListAsync();
 
@@ -160,52 +168,19 @@ namespace AcademiaX_Business.Concrete
 
 		public async Task<ApiResponse> EnrollInCourse(EnrollInCourseRequestDTO model)
 		{
-			// 1. Kursu bul
-			var course = await _context.Courses
-				.Include(c => c.Students)
-				.FirstOrDefaultAsync(c => c.Id == model.CourseId);
+			// Ortak "öğrenciyi derse ekle" mantığı: bkz. CourseEnrollmentHelper (önceden bu kod
+			// CourseService/StudentService/TeacherService'te üç kez tekrarlanıyordu).
+			var result = await CourseEnrollmentHelper.EnrollStudentAsync(_context, model.CourseId, model.StudentId, requireStudentRole: false);
 
-			if (course == null)
+			if (!result.Success)
 			{
 				return new ApiResponse
 				{
-					StatusCode = HttpStatusCode.NotFound,
+					StatusCode = result.NotFound ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest,
 					IsSuccess = false,
-					ErrorMessages = new List<string> { "Course not found." }
+					ErrorMessages = new List<string> { result.ErrorMessage }
 				};
 			}
-
-			// 2. Öğrenci zaten kayıtlı mı kontrol et
-			bool alreadyEnrolled = course.Students.Any(s => s.Id == model.StudentId);
-
-			if (alreadyEnrolled)
-			{
-				return new ApiResponse
-				{
-					StatusCode = HttpStatusCode.BadRequest,
-					IsSuccess = false,
-					ErrorMessages = new List<string> { "Student already enrolled in this course." }
-				};
-			}
-
-			// 3. Öğrenciyi getir
-			var student = await _context.Users.FirstOrDefaultAsync(u => u.Id == model.StudentId);
-
-			if (student == null)
-			{
-				return new ApiResponse
-				{
-					StatusCode = HttpStatusCode.NotFound,
-					IsSuccess = false,
-					ErrorMessages = new List<string> { "Student not found." }
-				};
-			}
-
-			// 4. Öğrenciyi kursun Students koleksiyonuna ekle
-			course.Students.Add(student);
-
-			// 5. Değişiklikleri kaydet
-			await _context.SaveChangesAsync();
 
 			return new ApiResponse
 			{
@@ -349,9 +324,12 @@ namespace AcademiaX_Business.Concrete
 			}
 			catch (Exception ex)
 			{
+				// ex.Message istemciye döndürülmüyor: iç detaylar (şema, dosya yolu vb.) sızabilir.
+				// Ayrıntı sunucu logunda, istemciye jenerik mesaj.
+				_logger.LogError(ex, "GetStudentsInCourse failed for courseId {CourseId}", courseId);
 				response.StatusCode = HttpStatusCode.InternalServerError;
 				response.IsSuccess = false;
-				response.ErrorMessages.Add(ex.Message);
+				response.ErrorMessages.Add("Öğrenci listesi alınırken bir hata oluştu.");
 			}
 
 			return response;

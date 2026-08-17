@@ -23,16 +23,9 @@ public class TeacherService : ITeacherService
 	{
 		var response = new ApiResponse();
 		var teachers = await _context.ApplicationUsers
-	  .Where(u => u.UserType == UserType.Teacher)
-	.Select(u => new PersonDTO
-	{
-		Id = u.Id,
-		FullName = u.FirstName + " " + u.LastName,
-		Email = u.Email,
-		PhoneNumber = u.PhoneNumber,
-		Image = u.Image
-	})
-   .ToListAsync();
+			.Where(u => u.UserType == UserType.Teacher)
+			.Select(PersonProjections.ToPersonDto)
+			.ToListAsync();
 
 		response.StatusCode = HttpStatusCode.OK;
 		response.IsSuccess = true;
@@ -45,14 +38,7 @@ public class TeacherService : ITeacherService
 		var response = new ApiResponse();
 		var teacher = await _context.ApplicationUsers
 			.Where(u => u.UserType == UserType.Teacher && u.Id == teacherId)
-			.Select(u => new PersonDTO
-			{
-				Id = u.Id,
-				FullName = u.FirstName + " " + u.LastName,
-				Email = u.Email,
-				PhoneNumber = u.PhoneNumber,
-				Image = u.Image
-			})
+			.Select(PersonProjections.ToPersonDto)
 			.FirstOrDefaultAsync();
 		if (teacher == null)
 		{
@@ -68,25 +54,45 @@ public class TeacherService : ITeacherService
 	}
 
 
-	public Task<ApiResponse> GetCoursesByTeacher(TeacherCoursesDTO model)
+	public async Task<ApiResponse> GetCoursesByTeacher(TeacherCoursesDTO model)
 	{
 		var response = new ApiResponse();
 
-		List<AcademiaX_Data_Access.Domain.Course> courses = _context.Courses
+		// Ham Course entity'si değil CourseDTO döndürülüyor: Course.Teacher/Students navigation
+		// property'leri ileride bir Include ile yüklenirse ApplicationUser'ın (Identity) PasswordHash
+		// gibi hassas alanları JSON'a sızdırma riski var — DTO projeksiyonu bunu yapısal olarak engeller.
+		var courses = await _context.Courses
 			.Where(c => c.TeacherId == model.TeacherId)
-			.ToList();
+			.Select(c => new CourseDTO
+			{
+				CourseId = c.Id,
+				Name = c.Name,
+				Code = c.Code,
+				Description = c.Description,
+				Credits = c.Credits,
+				DepartmentId = c.DepartmentId,
+				SemesterId = c.SemesterId,
+				TeacherId = c.TeacherId,
+				TotalStudents = c.Students.Count()
+			})
+			.ToListAsync();
 
 		response.StatusCode = HttpStatusCode.OK;
 		response.IsSuccess = true;
 		response.Result = courses;
 
-		return Task.FromResult(response);
+		return response;
 	}
 
 	public async Task<ApiResponse> GetTeacherProfile(TeacherProfileDTO model)
 	{
 		var response = new ApiResponse();
 
+		// Not: TotalStudents/CoursesGivenCount DTO'da tanımlıydı ama hiç hesaplanmıyordu
+		// (varsayılan 0 dönüyordu) — UserDetail.jsx bunları gösteriyor, şimdi gerçek değer geliyor.
+		// ApplicationUser tarafında "verdiği dersler" için bir navigation property yok
+		// (Course.Teacher ilişkisi .WithMany() ile shadow olarak tanımlı), bu yüzden Courses
+		// tablosu TeacherId üzerinden ayrıca sorgulanıyor.
 		var teacher = await _context.ApplicationUsers
 			.Where(u => u.UserType == UserType.Teacher && u.Id == model.Id)
 			.Select(u => new TeacherProfileDTO
@@ -102,6 +108,17 @@ public class TeacherService : ITeacherService
 				Biography = u.Biography
 			})
 			.FirstOrDefaultAsync();
+
+		if (teacher != null)
+		{
+			teacher.CoursesGivenCount = await _context.Courses.CountAsync(c => c.TeacherId == model.Id);
+			teacher.TotalStudents = await _context.Courses
+				.Where(c => c.TeacherId == model.Id)
+				.SelectMany(c => c.Students)
+				.Select(s => s.Id)
+				.Distinct()
+				.CountAsync();
+		}
 
 		//var teacher = _context.ApplicationUsers.FirstOrDefault(u => u.Id == model.Id);
 
@@ -120,18 +137,18 @@ public class TeacherService : ITeacherService
 		return response;
 	}
 
-	public Task<ApiResponse> UpdateTeacherProfile(UpdateProfileRequestDTO model)
+	public async Task<ApiResponse> UpdateTeacherProfile(UpdateProfileRequestDTO model)
 	{
 		var response = new ApiResponse();
 
-		var teacher = _context.ApplicationUsers.FirstOrDefault(u => u.Id == model.Id);
+		var teacher = await _context.ApplicationUsers.FirstOrDefaultAsync(u => u.Id == model.Id);
 
 		if (teacher == null)
 		{
 			response.IsSuccess = false;
 			response.StatusCode = HttpStatusCode.NotFound;
 			response.ErrorMessages.Add("Öğretmen bulunamadı.");
-			return Task.FromResult(response);
+			return response;
 		}
 
 		teacher.FirstName = model.FirstName;
@@ -140,56 +157,35 @@ public class TeacherService : ITeacherService
 		teacher.PhoneNumber = model.PhoneNumber;
 		teacher.Image = model.Image;
 
-		_context.SaveChanges();
+		await _context.SaveChangesAsync();
 
 		response.StatusCode = HttpStatusCode.OK;
 		response.IsSuccess = true;
 		response.Result = "Profil başarıyla güncellendi.";
 
-		return Task.FromResult(response);
+		return response;
 	}
 
-	public Task<ApiResponse> AssignStudentToCourse(EnrollInCourseRequestDTO model)
+	public async Task<ApiResponse> AssignStudentToCourse(EnrollInCourseRequestDTO model)
 	{
 		var response = new ApiResponse();
 
-		var course = _context.Courses
-			.Include(c => c.Students)
-			.FirstOrDefault(c => c.Id == model.CourseId);
+		// Ortak "öğrenciyi derse ekle" mantığı: bkz. CourseEnrollmentHelper (önceden bu kod
+		// CourseService/StudentService/TeacherService'te üç kez tekrarlanıyordu).
+		var result = await CourseEnrollmentHelper.EnrollStudentAsync(_context, model.CourseId, model.StudentId, requireStudentRole: false);
 
-		if (course == null)
+		if (!result.Success)
 		{
 			response.IsSuccess = false;
-			response.StatusCode = HttpStatusCode.NotFound;
-			response.ErrorMessages.Add("Ders bulunamadı.");
-			return Task.FromResult(response);
+			response.StatusCode = result.NotFound ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest;
+			response.ErrorMessages.Add(result.ErrorMessage);
+			return response;
 		}
-
-		var student = _context.ApplicationUsers.FirstOrDefault(u => u.Id == model.StudentId);
-		if (student == null)
-		{
-			response.IsSuccess = false;
-			response.StatusCode = HttpStatusCode.NotFound;
-			response.ErrorMessages.Add("Öğrenci bulunamadı.");
-			return Task.FromResult(response);
-		}
-
-		// Öğrenci zaten ekli mi?
-		if (course.Students.Any(s => s.Id == model.StudentId))
-		{
-			response.IsSuccess = false;
-			response.StatusCode = HttpStatusCode.BadRequest;
-			response.ErrorMessages.Add("Öğrenci zaten bu derse kayıtlı.");
-			return Task.FromResult(response);
-		}
-
-		course.Students.Add(student);
-		_context.SaveChanges();
 
 		response.StatusCode = HttpStatusCode.OK;
 		response.IsSuccess = true;
 		response.Result = "Öğrenci derse başarıyla eklendi.";
 
-		return Task.FromResult(response);
+		return response;
 	}
 }

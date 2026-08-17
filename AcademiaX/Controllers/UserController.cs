@@ -1,28 +1,24 @@
-﻿using AcademiaX_Business.Abstraction;
+using AcademiaX_Business.Abstraction;
 using AcademiaX_Business.Dtos;
-using AcademiaX_Data_Access.Context;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace AcademiaX.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
-	public class UserController : ControllerBase
+	[Authorize]
+	public class UserController : ApiControllerBase
 	{
 		/* ASP.NET Core uygulamalarında Dependency Injection (Bağımlılık Enjeksiyonu) kullanılarak bir servisin bir kontrolcüye (controller) enjekte edilmesini gösteriyor */
 		private readonly IUserService _userService;
-		private readonly ApplicationDbContext _context;
-		public UserController(IUserService userService ,ApplicationDbContext context)
+		public UserController(IUserService userService)
 		{
 			_userService = userService;
-			_context = context;
 		}
 
 		[HttpPost("Register")]
+		[AllowAnonymous]
 		public async Task<IActionResult> CreateUser([FromBody] RegisterRequestDTO model)
 		{
 			var response = await _userService.Register(model);
@@ -33,8 +29,22 @@ namespace AcademiaX.Controllers
 			return BadRequest(response);
 		}
 
+		// Yalnızca Administrator'ın Teacher/Administrator hesabı açabildiği uç nokta.
+		// Public Register her zaman Student rolü verir (bkz. UserService.Register).
+		[HttpPost("CreateStaffUser")]
+		[Authorize(Roles = "Administrator")]
+		public async Task<IActionResult> CreateStaffUser([FromBody] RegisterRequestDTO model)
+		{
+			var response = await _userService.CreateStaffUser(model);
+			if (response.IsSuccess)
+			{
+				return Ok(response);
+			}
+			return BadRequest(response);
+		}
 
 		[HttpPost("Login")]
+		[AllowAnonymous]
 		public async Task<IActionResult> LoginUser([FromBody] LoginRequestDTO model)
 		{
 			var response = await _userService.Login(model);
@@ -44,24 +54,41 @@ namespace AcademiaX.Controllers
 			}
 			return BadRequest(response);
 		}
-		//[Authorize(Roles = "Administrator")] // Admin yetkisi olanlar erişebilir
+
+		// Kullanıcı sadece kendi profilini, Administrator ise herkesinkini görebilir.
 		[HttpGet("{id}")]
 		public async Task<IActionResult> GetUserById(string id)
 		{
+			if (!CanAccessOwnResource(id))
+			{
+				return Forbid();
+			}
+
 			var result = await _userService.GetUserById(id);
 			return StatusCode((int)result.StatusCode, result);
 		}
 
+		// Bir kullanıcının Student/Teacher/Administrator olduğunu öğrenmek yönetimsel bir işlemdir
+		// (ör. admin panelindeki kullanıcı detay ekranı) — herkese açık olmamalı.
 		[HttpGet("GetUserType/{id}")]
-		public IActionResult GetUserType(string id)
+		[Authorize(Roles = "Administrator,Teacher")]
+		public async Task<IActionResult> GetUserType(string id)
 		{
-			var user = _context.ApplicationUsers.FirstOrDefault(u => u.Id == id);
-			if (user == null)
-				return NotFound(new { message = "Kullanıcı bulunamadı." });
-
-			return Ok(new { result = user.UserType.ToString() }); // örn: "Teacher" veya "Student"
+			var result = await _userService.GetUserType(id);
+			return StatusCode((int)result.StatusCode, result);
 		}
 
+		// Kullanıcı sadece kendi profilini güncelleyebilir, Administrator herkesinkini.
+		[HttpPut("update-profile")]
+		public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDTO model)
+		{
+			if (!CanAccessOwnResource(model.Id))
+			{
+				return Forbid();
+			}
 
+			var result = await _userService.UpdateProfile(model);
+			return StatusCode((int)result.StatusCode, result);
+		}
 	}
 }
