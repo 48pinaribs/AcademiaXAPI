@@ -43,5 +43,12 @@ namespace AcademiaX.Controllers
 		{
 			return await _gtfsService.GetStopTimeTable(stopId, directionId);
 		}
+
+		// GET /api/gtfs/plan?fromStopId=YURT&toStopId=SEHIR — "A'dan B'ye nasıl giderim" rota planlayıcısı.
+		[HttpGet("plan")]
+		public async Task<ApiResponse> GetRoutePlan([FromQuery] string fromStopId, [FromQuery] string toStopId, [FromQuery] string afterTime = null)
+		{
+			return await _gtfsService.GetRoutePlan(fromStopId, toStopId, afterTime);
+		}
 	}
 }

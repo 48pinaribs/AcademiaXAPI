@@ -172,6 +172,124 @@ namespace AcademiaX_Business.Concrete
 			return response;
 		}
 
+		public async Task<ApiResponse> GetRoutePlan(string fromStopId, string toStopId, string afterTime = null)
+		{
+			var response = new ApiResponse();
+			try
+			{
+				if (string.IsNullOrWhiteSpace(fromStopId) || string.IsNullOrWhiteSpace(toStopId))
+				{
+					response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Kalkış ve varış durağı seçilmelidir.");
+					return response;
+				}
+
+				if (fromStopId == toStopId)
+				{
+					response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Kalkış ve varış durağı aynı olamaz.");
+					return response;
+				}
+
+				var stops = await LoadStopsAsync();
+				var fromStop = stops.FirstOrDefault(s => s.StopId == fromStopId);
+				var toStop = stops.FirstOrDefault(s => s.StopId == toStopId);
+				if (fromStop == null || toStop == null)
+				{
+					response.StatusCode = System.Net.HttpStatusCode.NotFound;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Durak bulunamadı.");
+					return response;
+				}
+
+				var trips = await LoadTripsAsync();
+				var stopTimes = await LoadStopTimesAsync();
+
+				// Her yön (direction) için tek bir örnek sefer üzerinden durak sırasını çıkar —
+				// hat sabit olduğu için (bkz. GtfsSeeder) bir yöndeki tüm seferler aynı durak
+				// sırasını izler, hangi yönün from->to'yu kapsadığını bulmak için bu yeterli.
+				int? validDirection = null;
+				foreach (var directionId in trips.Select(t => t.DirectionId).Distinct())
+				{
+					var sampleTripId = trips.First(t => t.DirectionId == directionId).TripId;
+					var sampleStops = stopTimes.Where(st => st.TripId == sampleTripId).ToList();
+					var fromSeq = sampleStops.FirstOrDefault(st => st.StopId == fromStopId)?.StopSequence;
+					var toSeq = sampleStops.FirstOrDefault(st => st.StopId == toStopId)?.StopSequence;
+					if (fromSeq.HasValue && toSeq.HasValue && fromSeq < toSeq)
+					{
+						validDirection = directionId;
+						break;
+					}
+				}
+
+				if (validDirection == null)
+				{
+					response.StatusCode = System.Net.HttpStatusCode.NotFound;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Bu duraklar arasında bir güzergah bulunamadı.");
+					return response;
+				}
+
+				var directionTripIds = trips.Where(t => t.DirectionId == validDirection).Select(t => t.TripId).ToHashSet();
+
+				// Her sefer (trip) için kalkış (fromStop) ve varış (toStop) saatlerini eşleştir.
+				var candidates = stopTimes
+					.Where(st => st.StopId == fromStopId && directionTripIds.Contains(st.TripId))
+					.Select(fromSt => new
+					{
+						FromSt = fromSt,
+						ToSt = stopTimes.FirstOrDefault(st => st.TripId == fromSt.TripId && st.StopId == toStopId)
+					})
+					.Where(x => x.ToSt != null)
+					.OrderBy(x => x.FromSt.DepartureTime, StringComparer.Ordinal)
+					.ToList();
+
+				if (candidates.Count == 0)
+				{
+					response.StatusCode = System.Net.HttpStatusCode.NotFound;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Bu duraklar arasında planlanmış bir sefer bulunamadı.");
+					return response;
+				}
+
+				var effectiveAfter = string.IsNullOrWhiteSpace(afterTime) ? DateTime.Now.ToString("HH:mm:ss") : afterTime;
+				var next = candidates.FirstOrDefault(x => string.CompareOrdinal(x.FromSt.DepartureTime, effectiveAfter) >= 0);
+				var isNextDay = next == null;
+				if (next == null)
+				{
+					next = candidates.First();
+				}
+
+				var departure = TimeSpan.Parse(next.FromSt.DepartureTime);
+				var arrival = TimeSpan.Parse(next.ToSt.ArrivalTime);
+				var now = TimeSpan.Parse(effectiveAfter);
+
+				response.Result = new Dtos.Gtfs.RoutePlanDTO
+				{
+					FromStopId = fromStop.StopId,
+					FromStopName = fromStop.StopName,
+					ToStopId = toStop.StopId,
+					ToStopName = toStop.StopName,
+					DirectionId = validDirection.Value,
+					DepartureTime = next.FromSt.DepartureTime,
+					ArrivalTime = next.ToSt.ArrivalTime,
+					DurationMinutes = (int)(arrival - departure).TotalMinutes,
+					WaitMinutes = isNextDay ? 0 : (int)Math.Round((departure - now).TotalMinutes),
+					IsNextDay = isNextDay,
+				};
+				response.IsSuccess = true;
+				response.StatusCode = System.Net.HttpStatusCode.OK;
+			}
+			catch (Exception ex)
+			{
+				LogAndSetGenericError(response, ex, nameof(GetRoutePlan));
+			}
+
+			return response;
+		}
+
 		private void LogAndSetGenericError(ApiResponse response, Exception ex, string operation)
 		{
 			_logger.LogError(ex, "GtfsService.{Operation} failed", operation);

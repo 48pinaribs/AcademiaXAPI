@@ -14,5 +14,7 @@ namespace AcademiaX_Business.Abstraction
 		Task<ApiResponse> GetStopTimes();
 		Task<ApiResponse> GetStopTimeTable(string stopId, int directionId = 0);
 
+		/// İki durak arasındaki bir sonraki seferi (yön, kalkış/varış saati, süre) bulur.
+		Task<ApiResponse> GetRoutePlan(string fromStopId, string toStopId, string afterTime = null);
 	}
 }

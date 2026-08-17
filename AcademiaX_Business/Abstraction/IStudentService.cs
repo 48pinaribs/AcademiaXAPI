@@ -22,6 +22,7 @@ namespace AcademiaX_Business.Abstraction
 
 		Task<ApiResponse> SendMessageToAdvisor(string studentId, string message);
 		Task<ApiResponse> AssignAdvisor(AssignAdvisorRequestDTO model);
+		Task<ApiResponse> SetFavoriteStop(FavoriteStopRequestDTO model);
 		Task<ApiResponse> GetAttendance(string studentId);
 	}
 }

@@ -142,5 +142,19 @@ namespace AcademiaX.Controllers
 			var response = await _studentService.AssignAdvisor(model);
 			return StatusCode((int)response.StatusCode, response);
 		}
+
+		// PUT: api/student/favorite-stop — öğrencinin kampüs ring'indeki favori durağını ayarlar/kaldırır.
+		[HttpPut("favorite-stop")]
+		[Authorize(Roles = "Student,Administrator")]
+		public async Task<IActionResult> SetFavoriteStop([FromBody] FavoriteStopRequestDTO model)
+		{
+			if (!CanAccessOwnResource(model.StudentId))
+			{
+				return Forbid();
+			}
+
+			var response = await _studentService.SetFavoriteStop(model);
+			return StatusCode((int)response.StatusCode, response);
+		}
 	}
 }

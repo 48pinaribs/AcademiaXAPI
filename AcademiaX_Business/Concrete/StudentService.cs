@@ -81,6 +81,7 @@ namespace AcademiaX_Business.Concrete
 				GPA = user.GPA,
 				Biography = user.Biography,
 				AdvisorName = user.Advisor != null ? user.Advisor.FirstName + " " + user.Advisor.LastName : null,
+				FavoriteStopId = user.FavoriteStopId,
 			};
 
 			response.StatusCode = HttpStatusCode.OK;
@@ -269,6 +270,47 @@ namespace AcademiaX_Business.Concrete
 			response.StatusCode = HttpStatusCode.OK;
 			response.IsSuccess = true;
 			response.Result = "Danışman ataması güncellendi.";
+			return response;
+		}
+
+		public async Task<ApiResponse> SetFavoriteStop(FavoriteStopRequestDTO model)
+		{
+			var response = new ApiResponse();
+
+			var student = await _context.ApplicationUsers
+				.FirstOrDefaultAsync(u => u.Id == model.StudentId && u.UserType == UserType.Student);
+
+			if (student == null)
+			{
+				response.StatusCode = HttpStatusCode.NotFound;
+				response.IsSuccess = false;
+				response.ErrorMessages.Add("Öğrenci bulunamadı.");
+				return response;
+			}
+
+			if (string.IsNullOrEmpty(model.StopId))
+			{
+				student.FavoriteStopId = null;
+			}
+			else
+			{
+				var stopExists = await _context.Stops.AnyAsync(s => s.StopId == model.StopId);
+				if (!stopExists)
+				{
+					response.StatusCode = HttpStatusCode.BadRequest;
+					response.IsSuccess = false;
+					response.ErrorMessages.Add("Seçilen durak geçerli değil.");
+					return response;
+				}
+
+				student.FavoriteStopId = model.StopId;
+			}
+
+			await _context.SaveChangesAsync();
+
+			response.StatusCode = HttpStatusCode.OK;
+			response.IsSuccess = true;
+			response.Result = "Favori durak güncellendi.";
 			return response;
 		}
 

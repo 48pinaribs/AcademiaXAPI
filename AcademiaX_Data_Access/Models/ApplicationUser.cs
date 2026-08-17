@@ -52,6 +52,12 @@ namespace AcademiaX_Data_Access.Models
 		[ForeignKey("AdvisorId")]
 		public ApplicationUser? Advisor { get; set; }
 
+		// ✅ Kampüs ring'inde öğrencinin favori durağı (bkz. GtfsController/StudentController).
+		// Bilinçli olarak formal bir FK/navigation değil — Stop.StopId string bir doğal anahtar
+		// ve GTFS verisi ayrı bir servis (GtfsService) tarafından yönetiliyor; geçerlilik
+		// StudentService.SetFavoriteStop içinde kontrol ediliyor.
+		public string? FavoriteStopId { get; set; }
+
 
 
 
