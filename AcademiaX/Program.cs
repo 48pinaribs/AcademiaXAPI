@@ -12,6 +12,17 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
+// appsettings*.json değişikliklerini canlı izlemek için .NET varsayılan olarak bir
+// FileSystemWatcher (inotify) açar. Render'ın (ve birçok küçük konteyner limitli
+// ortamın) inotify instance kotası çok düşük — bu da WebApplication.CreateBuilder
+// içinde "The configured user limit (128) on the number of inotify instances has
+// been reached" IOException'ı ile uygulamanın process başlamadan çökmesine (exit 139)
+// yol açıyor. Prod'da config zaten dosya değil ortam değişkeni üzerinden geldiği için
+// reload-on-change'e ihtiyaç yok; bu env var'ı CreateBuilder çağrılmadan ÖNCE process
+// içinde set etmek (Render dashboard'una ayrıca eklemeye gerek kalmadan, her ortamda)
+// izlemeyi kapatıyor.
+Environment.SetEnvironmentVariable("DOTNET_hostBuilder__reloadConfigOnChange", "false");
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Render (ve benzeri PaaS'lar) konteynere dışarıdan hangi portu dinleyeceğini
