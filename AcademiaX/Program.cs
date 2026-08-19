@@ -5,6 +5,7 @@ using AcademiaX_Data_Access.Context;
 using AcademiaX_Data_Access.Models;
 using AcademiaX_Data_Access.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -12,6 +13,15 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Render (ve benzeri PaaS'lar) konteynere dışarıdan hangi portu dinleyeceğini
+// PORT ortam değişkeniyle söyler; Kestrel'i buna göre bağlıyoruz. Yerelde (PORT
+// tanımlı değilken) launchSettings.json'daki profiller değişmeden çalışmaya devam eder.
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(renderPort))
+{
+	builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
+}
 
 // Add services to the container.
 
@@ -99,13 +109,20 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddScoped(typeof(ApiResponse));
 
-// CORS'u tan�mla
+// CORS'u tanımla. İzinli origin listesi appsettings/ortam değişkeninden okunur
+// (Cors:AllowedOrigins), böylece prod'da Vercel domain'ini kod değiştirmeden
+// eklemek mümkün olur. Hiç ayarlanmamışsa yerel geliştirme origin'ine düşer.
+var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+var allowedOrigins = (configuredOrigins is { Length: > 0 })
+	? configuredOrigins
+	: new[] { "http://localhost:3000" };
+
 builder.Services.AddCors(options =>
 {
 	options.AddPolicy("AllowReact",
 		builder =>
 		{
-			builder.WithOrigins("http://localhost:3000")
+			builder.WithOrigins(allowedOrigins)
 				   .AllowAnyHeader()
 				   .AllowAnyMethod();
 		});
@@ -118,6 +135,12 @@ var app = builder.Build();
 // (önceki kod bunu her kayıt isteğinde kontrol ediyordu — gereksiz ve dağınıktı).
 using (var scope = app.Services.CreateScope())
 {
+	// Bekleyen migration'ları uygulamaya başlarken otomatik uygula — Render gibi
+	// tek kullanımlık konteynerlerde "önce elle dotnet ef database update çalıştır"
+	// adımı yok, deploy'un kendisi migration'ı da taşımalı.
+	var dbContext = scope.ServiceProvider.GetRequiredService<AcademiaX_Data_Access.Context.ApplicationDbContext>();
+	await dbContext.Database.MigrateAsync();
+
 	var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 	foreach (var roleName in Enum.GetNames(typeof(UserType)))
 	{
@@ -128,7 +151,6 @@ using (var scope = app.Services.CreateScope())
 	}
 
 	// Kampüs ulaşım (dolmuş) verisi — tablo boşsa bir kere örnek veriyle doldurulur.
-	var dbContext = scope.ServiceProvider.GetRequiredService<AcademiaX_Data_Access.Context.ApplicationDbContext>();
 	await GtfsSeeder.SeedAsync(dbContext);
 }
 
@@ -142,9 +164,28 @@ else
 {
 	// Prod'da yakalanmamış exception'ların stack trace/iç detay sızdırmasını engelle.
 	app.UseExceptionHandler("/error");
+
+	// Render (ve benzeri PaaS'lar) TLS'i kendi edge/proxy katmanında sonlandırıp
+	// konteynere düz HTTP ile iletir. UseHttpsRedirection bunu her istekte tekrar
+	// HTTPS'e yönlendirmeye çalışıp sonsuz redirect/CORS preflight hatasına yol
+	// açar; X-Forwarded-Proto'ya güvenerek şemayı doğru okumasını sağlıyoruz.
+	var forwardedHeadersOptions = new ForwardedHeadersOptions
+	{
+		ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+	};
+	// Render'ın proxy zinciri bilinen sabit bir IP/ağ olmadığı için varsayılan
+	// KnownProxies/KnownNetworks kısıtlamasını (yalnızca loopback'e güvenme) kaldırıyoruz
+	// — aksi halde ForwardedHeaders middleware'i Render'ın proxy'sinden gelen
+	// X-Forwarded-Proto header'ını güvenilmez sayıp yok sayar.
+	forwardedHeadersOptions.KnownNetworks.Clear();
+	forwardedHeadersOptions.KnownProxies.Clear();
+	app.UseForwardedHeaders(forwardedHeadersOptions);
 }
 
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+{
+	app.UseHttpsRedirection();
+}
 
 // Sıra önemli: CORS, routing/endpoint eşleştirmesinden ve
 // authentication/authorization'dan ÖNCE gelmeli, aksi halde
